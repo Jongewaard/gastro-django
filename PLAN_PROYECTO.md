@@ -1,207 +1,163 @@
-# Pizzería SaaS - Sistema Contable y Gestión de Personal
+# Gastro SaaS - Sistema Universal para Negocios Gastronómicos
 
-## 🎯 Objetivo
-Sistema SaaS multi-tenant para gestión contable, inventarios y sueldos específicamente diseñado para pizzerías pequeñas y medianas.
+## 🎯 Objetivo ACTUALIZADO
+Sistema SaaS multi-tenant para gestión integral de **cualquier negocio gastronómico**: pizzerías, heladerías, restaurantes, cafeterías, etc. 
 
 ## 📋 Características Principales
 
-### 1. Multi-Tenancy (SaaS Core)
-- Un sistema, múltiples pizzerías
+### 1. Multi-Tenancy Configurable
+- Un sistema, múltiples negocios gastronómicos
+- **Configuración por tipo de negocio**: pizzería, heladería, restaurante, etc.
+- Templates de setup inicial según el tipo
 - Datos completamente separados por tenant
-- Facturación por pizzería
-- Onboarding automatizado
 
-### 2. Gestión de Ventas
-- **Registro de ventas diarias**
-  - Entrada manual rápida (caja registradora básica)
-  - Categorías: pizzas, bebidas, postres, extras
-  - Formas de pago: efectivo, tarjeta, transferencia
-  - Descuentos y promociones
-- **Reportes de ventas**
-  - Diario, semanal, mensual
-  - Por categoría de producto
-  - Comparación con períodos anteriores
+### 2. Configuración Flexible de Productos
+- **Menús personalizables** por tipo de negocio
+- **Categorías adaptables**: 
+  - Pizzería: pizzas, bebidas, postres
+  - Heladería: helados, batidos, tortas
+  - Restaurante: entradas, platos principales, postres
+- **Gestión de variantes**: tamaños, sabores, extras
+- **Precios dinámicos** por categoría/horario
 
-### 3. Control de Inventario
-- **Ingredientes básicos**
-  - Harina, queso, tomate, etc.
-  - Control de stock mínimo
-  - Alertas de reposición
-- **Gestión de proveedores**
-  - Contactos y datos de proveedores
-  - Histórico de compras
-- **Cálculo de costos**
-  - Costo por pizza basado en ingredientes
-  - Margen de ganancia por producto
+### 3. Control de Inventario Universal
+- **Ingredientes base configurables**
+  - Pizzería: harina, queso, tomate
+  - Heladería: leche, azúcar, frutas
+  - Restaurante: carnes, verduras, especias
+- **Recetas y costos** por producto
+- **Proveedores** y órdenes de compra
+- **Stock mínimo** con alertas automáticas
 
-### 4. Gestión de Personal
-- **Empleados**
-  - Datos personales básicos
-  - Rol (cocinero, delivery, cajero, etc.)
-  - Horarios de trabajo
-- **Cálculo de sueldos**
-  - Sueldos fijos + comisiones/propinas
-  - Descuentos (ausencias, adelantos)
-  - Liquidación mensual automática
-- **Control de asistencia**
-  - Check-in/check-out básico
-  - Cálculo de horas trabajadas
+### 4. Gestión de Personal + Reloj Biométrico
+- **Empleados con roles**: cocinero, cajero, delivery, etc.
+- **Turnos y horarios** flexibles por negocio
+- **Integración futura**: API para relojes biométricos
+- **Control de asistencia** automático
+- **Cálculo de sueldos** con horas trabajadas + extras
 
-### 5. Contabilidad Básica
-- **Libro de ingresos y egresos**
-  - Ventas (automáticas)
-  - Gastos (compras, sueldos, servicios)
-  - Categorización contable
-- **Reportes fiscales**
-  - IVA básico (si aplica)
-  - Resumen mensual para contador
-- **Dashboard financiero**
-  - Cash flow
-  - Rentabilidad por período
+### 5. Ventas Multi-Canal
+- **POS integrado** para caja registradora
+- **Formas de pago**: efectivo, tarjeta, QR, delivery apps
+- **Comandas** para cocina/producción
+- **Delivery tracking** básico
+- **Promociones** y descuentos configurables
 
-### 6. Features SaaS
-- **Dashboard administrativo**
-  - Métricas clave en tiempo real
-  - Alertas y notificaciones
-- **Gestión de usuarios**
-  - Roles: Admin, Empleado, Contador
-  - Permisos granulares
-- **Backup automático**
-  - Datos críticos respaldados
-- **API REST** (futuro)
-  - Integración con POS externos
+### 6. Contabilidad & Reportes
+- **Dashboard por tipo de negocio** con KPIs relevantes
+- **Reportes específicos**: 
+  - Pizzería: pizzas más vendidas, horarios pico
+  - Heladería: sabores populares, stock crítico
+- **Integración contable** básica (ingresos/egresos)
+- **Exportación** para contador externo
 
-## 🏗️ Arquitectura Técnica
+## 🏗️ Arquitectura Técnica ACTUALIZADA
 
-### Stack Principal
-- **Backend**: Django 5.0 + Django REST Framework
-- **Base de datos**: PostgreSQL (multi-tenant con schemas)
-- **Frontend**: Django Templates + HTMX + Alpine.js (progresivo)
-- **CSS**: Tailwind CSS
-- **Deploy**: Docker + nginx + gunicorn
+### Apps Django Revisadas
+1. **accounts** - Usuario, autenticación, tenants, **configuración de negocio**
+2. **products** - Productos, menús, categorías **configurables**
+3. **inventory** - Ingredientes, recetas, stock, proveedores
+4. **sales** - Ventas, POS, formas de pago, comandas
+5. **employees** - Personal, horarios, **integración biométrico**
+6. **accounting** - Contabilidad, reportes, dashboard
+7. **integrations** - APIs externas (biométrico, delivery, etc.)
 
-### Estructura Multi-Tenant
+### Modelo de Configuración
 ```python
-# Opción 1: Shared Database, Separate Schemas
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
-        # ... 
-    }
-}
-
-# Opción 2: Tenant field en todos los modelos (más simple)
+class BusinessType(models.Model):
+    name = models.CharField(max_length=50)  # 'pizzeria', 'heladeria', etc.
+    display_name = models.CharField(max_length=100)
+    default_categories = models.JSONField()  # Templates iniciales
+    
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
-    slug = models.SlugField(unique=True)
-    # ...
+    business_type = models.ForeignKey(BusinessType, on_delete=models.CASCADE)
+    config = models.JSONField()  # Configuraciones específicas
+    # ... resto
+```
 
-class Sale(models.Model):
+### Integración Reloj Biométrico
+```python
+# Future integration
+class BiometricDevice(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
-    # ... resto del modelo
+    device_id = models.CharField(max_length=100)
+    ip_address = models.GenericIPAddressField()
+    api_endpoint = models.URLField()
+    
+class AttendanceRecord(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField()
+    action = models.CharField(choices=[('IN', 'Check In'), ('OUT', 'Check Out')])
+    device = models.ForeignKey(BiometricDevice, on_delete=models.SET_NULL, null=True)
 ```
 
-### Apps Django
-1. **accounts** - Usuario, autenticación, tenants
-2. **sales** - Ventas, productos, formas de pago
-3. **inventory** - Ingredientes, stock, proveedores
-4. **employees** - Personal, sueldos, asistencia
-5. **accounting** - Contabilidad, reportes fiscales
-6. **dashboard** - Métricas, alertas, notificaciones
-7. **api** - REST API (futuro)
+## 🚀 Plan de Desarrollo ACTUALIZADO
 
-## 📱 UX/UI Simplificado
+### Fase 1: Core Multi-Tenant (2-3 semanas)
+- [ ] Setup multi-tenant con configuración de negocio
+- [ ] Autenticación y roles
+- [ ] **Wizard de setup inicial** por tipo de negocio
+- [ ] CRUD productos configurables
+- [ ] Dashboard básico adaptativo
 
-### Principios de diseño
-- **Mobile-first**: Funciona en celular (dueños no siempre tienen PC)
-- **Workflows rápidos**: 3 clicks máximo para tareas frecuentes
-- **Visual claro**: Colores y iconos intuitivos
-- **Mínimo entrenamiento**: Diseño obvio
+### Fase 2: POS & Ventas (2 semanas)  
+- [ ] Sistema POS completo
+- [ ] Gestión de comandas
+- [ ] Formas de pago múltiples
+- [ ] Reportes de ventas por tipo de negocio
 
-### Pantallas clave
-1. **Dashboard**: Ventas hoy, alertas, accesos rápidos
-2. **Registrar venta**: Formulario ultra-simple
-3. **Stock**: Semáforo verde/amarillo/rojo por ingrediente
-4. **Empleados**: Lista con sueldos del mes
-5. **Reportes**: Gráficos básicos, exportar PDF
+### Fase 3: Inventario & Personal (2 semanas)
+- [ ] Control de stock e ingredientes
+- [ ] Gestión de empleados y turnos
+- [ ] Cálculo de costos y sueldos
+- [ ] Alertas automáticas
 
-## 🚀 Plan de Desarrollo (Fases)
+### Fase 4: Integraciones (2-3 semanas)
+- [ ] **API para reloj biométrico** (cuando tengas el modelo)
+- [ ] Integración delivery apps
+- [ ] Webhooks para sistemas externos
+- [ ] Backup automático
 
-### Fase 1: MVP Core (2-3 semanas)
-- [ ] Setup proyecto Django + multi-tenant básico
-- [ ] Autenticación y gestión de usuarios
-- [ ] CRUD básico: Productos, Empleados
-- [ ] Registro de ventas simple
-- [ ] Dashboard básico con métricas
+### Fase 5: Advanced Features
+- [ ] Analytics avanzado
+- [ ] App móvil para empleados
+- [ ] Multi-sucursal por tenant
+- [ ] Facturación electrónica
 
-### Fase 2: Gestión Operativa (2 semanas)
-- [ ] Control de inventario completo
-- [ ] Cálculo de sueldos básico
-- [ ] Reportes de ventas
-- [ ] Sistema de alertas
+## 💡 Tipos de Negocio Soportados
 
-### Fase 3: Contabilidad (2 semanas)
-- [ ] Libro de ingresos/egresos
-- [ ] Reportes fiscales básicos
-- [ ] Integración con datos de ventas
-- [ ] Export a Excel/PDF
+### 🍕 Pizzería
+- **Productos**: Pizzas (tamaños), bebidas, postres
+- **Ingredientes**: Masa, salsas, quesos, fiambres
+- **KPIs**: Pizzas/hora, ingredientes críticos, delivery time
 
-### Fase 4: Polish & Deploy (1-2 semanas)
-- [ ] UX/UI refinado
-- [ ] Deploy en producción
-- [ ] Testing con pizzería real
-- [ ] Documentación de usuario
+### 🍦 Heladería  
+- **Productos**: Helados (sabores, porciones), batidos, tortas
+- **Ingredientes**: Leche, frutas, coberturas, conos
+- **KPIs**: Sabores populares, stock crítico verano, rotación
 
-### Fase 5: SaaS Features (futuro)
-- [ ] Onboarding automatizado
-- [ ] Facturación por tenant
-- [ ] API REST
-- [ ] Integraciones externas
+### 🍽️ Restaurante
+- **Productos**: Entradas, principales, postres, bebidas
+- **Ingredientes**: Carnes, verduras, especias, vinos
+- **KPIs**: Platos estrella, costos, tiempo cocina
 
-## 💰 Modelo de Negocio
+### ☕ Cafetería
+- **Productos**: Cafés, tés, sandwiches, pasteles
+- **Ingredientes**: Granos, leches, panes, dulces
+- **KPIs**: Consumo horario, productos frescos
 
-### Pricing inicial
-- **Plan Básico**: $15-25 USD/mes por pizzería
-- **Plan Completo**: $35-50 USD/mes (con reportes avanzados)
-- **Setup fee**: $100 USD (onboarding + capacitación)
+## 🎯 MVP Target (Primera implementación)
 
-### Value proposition
-- Reduce tiempo en contabilidad manual
-- Mejor control de costos e inventario
-- Liquidación de sueldos automática
-- Reportes listos para contador
+**2 negocios piloto**: Tu amiga (pizzería) + cuñado (heladería)
 
-## 🔧 Setup Inicial
-
-### Dependencias principales
-```txt
-Django>=5.0
-django-tenants>=3.6.0  # o django-tenant-schemas
-djangorestframework>=3.14.0
-psycopg2-binary>=2.9.0
-django-extensions>=3.2.0
-django-debug-toolbar>=4.0.0
-celery>=5.3.0  # para tareas async
-redis>=5.0.0   # broker para celery
-```
-
-### Variables de entorno
-```env
-DEBUG=True
-SECRET_KEY=your-secret-key
-DATABASE_URL=postgresql://user:pass@localhost/pizzeria_saas
-REDIS_URL=redis://localhost:6379
-EMAIL_HOST_USER=noreply@pizzeria-saas.com
-```
-
-## 🎯 Next Steps
-
-1. **Setup proyecto** - estructura base Django + git
-2. **Definir modelos** - empezar con User, Tenant, Sale
-3. **Auth multi-tenant** - login con subdominio o path
-4. **Primera funcionalidad** - registro de ventas
-5. **Deploy temprano** - feedback real desde el inicio
+**Success criteria**:
+- Setup inicial específico por tipo
+- Menús configurados automáticamente  
+- Registro de ventas funcional
+- Control básico de empleados
+- Dashboards diferenciados
 
 ---
 
-**🍕 Target**: Sistema listo en 6-8 semanas para primera pizzería piloto.
+**🍕🍦 Target**: Sistema universal listo en 8-10 semanas para múltiples tipos de negocio gastronómico.
