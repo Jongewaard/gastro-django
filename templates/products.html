@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Productos - {{ user.tenant.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Productos</h2>
+            <p class="text-gray-600">Gestión del menú</p>
+        </div>
+        <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+            Agregar Producto
+        </a>
+    </div>
+
+    {% if products %}
+        <div class="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul role="list" class="divide-y divide-gray-200">
+                {% regroup products by category as category_list %}
+                {% for category in category_list %}
+                    <li class="bg-gray-50 px-4 py-3">
+                        <h3 class="text-lg font-medium text-gray-900">{{ category.grouper.name }}</h3>
+                    </li>
+                    {% for product in category.list %}
+                        <li>
+                            <div class="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
+                                <div class="flex items-center flex-1">
+                                    {% if product.image %}
+                                        <img class="h-12 w-12 rounded-lg object-cover mr-4" src="{{ product.image.url }}" alt="{{ product.name }}">
+                                    {% else %}
+                                        <div class="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center mr-4">
+                                            <span class="text-gray-500">📦</span>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3">
+                                            <h4 class="text-sm font-medium text-gray-900">{{ product.name }}</h4>
+                                            {% if not product.is_active %}
+                                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Inactivo</span>
+                                            {% endif %}
+                                            {% if product.has_variants %}
+                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Variantes</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if product.description %}
+                                            <p class="text-sm text-gray-600 mt-1">{{ product.description|truncatechars:100 }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center space-x-4">
+                                    <div class="text-right">
+                                        <div class="text-lg font-medium text-gray-900">${{ product.base_price }}</div>
+                                        {% if product.track_inventory %}
+                                            <div class="text-sm text-gray-500">
+                                                Stock: {{ product.current_stock }}
+                                                {% if product.current_stock <= product.min_stock %}
+                                                    <span class="text-red-600 font-medium">¡Bajo!</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="flex items-center space-x-2">
+                                        <a href="/admin/products/product/{{ product.id }}/change/" 
+                                           class="text-blue-600 hover:text-blue-900 text-sm">
+                                            Editar
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <div class="text-center py-12 bg-white rounded-lg shadow">
+            <div class="text-6xl mb-4">📦</div>
+            <h3 class="text-xl font-medium text-gray-900 mb-2">Sin productos configurados</h3>
+            <p class="text-gray-600 mb-6">
+                Empezá agregando productos a tu menú
+            </p>
+            <div class="space-x-4">
+                <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                    Agregar Primer Producto
+                </a>
+                <a href="/admin/products/category/" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Configurar Categorías
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

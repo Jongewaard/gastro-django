@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gastro SaaS{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-gray-50">
+    <!-- Header -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 justify-between items-center">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-900">
+                        {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}
+                    </h1>
+                    {% if user.tenant %}
+                        <span class="ml-3 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {{ user.tenant.get_business_type_display }}
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-sm text-gray-600">{{ user.get_full_name|default:user.username }}</span>
+                        <a href="{% url 'admin:index' %}" class="text-sm text-blue-600 hover:text-blue-800">Admin</a>
+                        <a href="/logout/" class="text-sm text-red-600 hover:text-red-800">Salir</a>
+                    {% else %}
+                        <a href="/login/" class="text-sm text-blue-600 hover:text-blue-800">Ingresar</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-auto">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+            <p class="text-center text-sm text-gray-500">
+                Gastro SaaS © 2026 - Sistema de gestión gastronómica
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Simple notifications
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-100 border-green-500 text-green-700' : 
+                           type === 'error' ? 'bg-red-100 border-red-500 text-red-700' :
+                           'bg-blue-100 border-blue-500 text-blue-700';
+            
+            alertDiv.className = `fixed top-4 right-4 p-4 border-l-4 ${bgColor} rounded shadow-lg z-50`;
+            alertDiv.innerHTML = `
+                <div class="flex">
+                    <div class="flex-1">${message}</div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg">&times;</button>
+                </div>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

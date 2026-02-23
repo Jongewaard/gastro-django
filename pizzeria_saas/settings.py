@@ -156,3 +156,8 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # Multi-tenant Configuration (basic version - tenant field approach)
 TENANT_MODEL = 'accounts.Tenant'
+
+# Login/Logout URLs
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'

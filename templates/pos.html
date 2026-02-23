@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}Punto de Venta - {{ user.tenant.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">Punto de Venta</h2>
+        <p class="text-gray-600">Registrar nueva venta</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Productos -->
+        <div class="lg:col-span-2">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900">Productos</h3>
+                </div>
+                <div class="p-4">
+                    {% if categories %}
+                        <!-- Categorías -->
+                        <div class="mb-4">
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="showCategory('all')" class="category-btn px-4 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                    Todos
+                                </button>
+                                {% for category in categories %}
+                                    <button onclick="showCategory('cat-{{ category.id }}')" class="category-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                        {{ category.name }}
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Productos por categoría -->
+                        {% for category in categories %}
+                            <div class="category-products cat-{{ category.id }} mb-6">
+                                <h4 class="text-md font-medium text-gray-700 mb-3">{{ category.name }}</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    {% for product in category.product_set.all %}
+                                        {% if product.is_active %}
+                                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.base_price }})" 
+                                                    class="product-btn p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-colors">
+                                                <div class="font-medium text-gray-900">{{ product.name }}</div>
+                                                <div class="text-sm text-gray-600">${{ product.base_price }}</div>
+                                            </button>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-8">
+                            <div class="text-4xl mb-4">📦</div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin productos configurados</h3>
+                            <p class="text-gray-600 mb-4">Primero configurá tu menú en el admin</p>
+                            <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                                Agregar Productos
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Carrito -->
+        <div class="lg:col-span-1">
+            <div class="bg-white shadow rounded-lg sticky top-6">
+                <div class="px-4 py-3 border-b">
+                    <h3 class="text-lg font-medium text-gray-900">Carrito</h3>
+                </div>
+                <div class="p-4">
+                    <div id="cart-items" class="space-y-3 mb-4">
+                        <div id="empty-cart" class="text-center py-6 text-gray-500">
+                            Agregá productos al carrito
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between text-lg font-medium text-gray-900 mb-4">
+                            <span>Total:</span>
+                            <span id="cart-total">$0</span>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="customer_name" class="block text-sm font-medium text-gray-700 mb-1">Cliente (opcional)</label>
+                            <input type="text" id="customer_name" placeholder="Nombre del cliente" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <button onclick="checkout()" id="checkout-btn" disabled
+                                class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+                            Procesar Venta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let cart = [];
+let cartTotal = 0;
+
+function showCategory(categoryClass) {
+    // Ocultar todas las categorías
+    document.querySelectorAll('.category-products').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Remover clase activa de botones
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.className = btn.className.replace('bg-blue-100 text-blue-800', 'bg-gray-100 text-gray-700');
+    });
+    
+    // Mostrar categoría seleccionada
+    if (categoryClass === 'all') {
+        document.querySelectorAll('.category-products').forEach(el => {
+            el.style.display = 'block';
+        });
+        event.target.className = event.target.className.replace('bg-gray-100 text-gray-700', 'bg-blue-100 text-blue-800');
+    } else {
+        const categoryEl = document.querySelector('.' + categoryClass);
+        if (categoryEl) {
+            categoryEl.style.display = 'block';
+        }
+        event.target.className = event.target.className.replace('bg-gray-100 text-gray-700', 'bg-blue-100 text-blue-800');
+    }
+}
+
+function addToCart(productId, productName, productPrice) {
+    const existingItem = cart.find(item => item.id === productId);
+    
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        cart.push({
+            id: productId,
+            name: productName,
+            price: productPrice,
+            quantity: 1
+        });
+    }
+    
+    updateCartDisplay();
+}
+
+function removeFromCart(productId) {
+    cart = cart.filter(item => item.id !== productId);
+    updateCartDisplay();
+}
+
+function updateQuantity(productId, change) {
+    const item = cart.find(item => item.id === productId);
+    if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            removeFromCart(productId);
+        } else {
+            updateCartDisplay();
+        }
+    }
+}
+
+function updateCartDisplay() {
+    const cartItemsEl = document.getElementById('cart-items');
+    const emptyCartEl = document.getElementById('empty-cart');
+    const cartTotalEl = document.getElementById('cart-total');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    
+    if (cart.length === 0) {
+        cartItemsEl.innerHTML = '<div id="empty-cart" class="text-center py-6 text-gray-500">Agregá productos al carrito</div>';
+        cartTotal = 0;
+        checkoutBtn.disabled = true;
+    } else {
+        let html = '';
+        cartTotal = 0;
+        
+        cart.forEach(item => {
+            const itemTotal = item.price * item.quantity;
+            cartTotal += itemTotal;
+            
+            html += `
+                <div class="flex items-center justify-between p-2 border rounded">
+                    <div class="flex-1">
+                        <div class="font-medium text-sm">${item.name}</div>
+                        <div class="text-xs text-gray-600">$${item.price} c/u</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQuantity(${item.id}, -1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs hover:bg-gray-300">-</button>
+                        <span class="text-sm">${item.quantity}</span>
+                        <button onclick="updateQuantity(${item.id}, 1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs hover:bg-gray-300">+</button>
+                        <button onclick="removeFromCart(${item.id})" class="text-red-600 hover:text-red-800 text-xs ml-2">×</button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        cartItemsEl.innerHTML = html;
+        checkoutBtn.disabled = false;
+    }
+    
+    cartTotalEl.textContent = `$${cartTotal.toFixed(2)}`;
+}
+
+function checkout() {
+    if (cart.length === 0) return;
+    
+    const customerName = document.getElementById('customer_name').value;
+    
+    // Aquí iría la llamada AJAX al backend para procesar la venta
+    const saleData = {
+        customer_name: customerName,
+        items: cart,
+        total: cartTotal
+    };
+    
+    console.log('Procesando venta:', saleData);
+    
+    // Simulación de éxito
+    showAlert('¡Venta procesada exitosamente!', 'success');
+    
+    // Limpiar carrito
+    cart = [];
+    updateCartDisplay();
+    document.getElementById('customer_name').value = '';
+}
+
+// Mostrar todas las categorías al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    showCategory('all');
+});
+</script>
+{% endblock %}
