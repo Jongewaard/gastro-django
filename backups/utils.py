@@ -80,6 +80,9 @@ def perform_backup(backup_dir=None, compress=True, trigger='manual', user=None):
         config.last_backup_status = 'success'
         config.save(update_fields=['last_backup_at', 'last_backup_status'])
 
+        # Auto-generate Excel export alongside DB backup
+        _generate_excel_snapshot(backup_dir, timestamp)
+
         return record
 
     except Exception as e:
@@ -93,6 +96,30 @@ def perform_backup(backup_dir=None, compress=True, trigger='manual', user=None):
         config.save(update_fields=['last_backup_status'])
 
         return record
+
+
+def _generate_excel_snapshot(backup_dir, timestamp):
+    """
+    Generate an Excel snapshot alongside each DB backup.
+    Saved in backups/excel/ with matching timestamp.
+    Silently skips on error (Excel is a bonus, not critical).
+    """
+    try:
+        from accounts.models import Tenant
+        from .export_xlsx import generate_export
+
+        tenant = Tenant.objects.filter(is_active=True).first()
+        if not tenant:
+            return
+
+        excel_dir = backup_dir / 'excel'
+        excel_dir.mkdir(exist_ok=True)
+
+        wb = generate_export(tenant)
+        excel_path = excel_dir / f'datos_{timestamp}.xlsx'
+        wb.save(str(excel_path))
+    except Exception:
+        pass  # Excel export is best-effort, never block backups
 
 
 def restore_backup(record_id):
@@ -187,7 +214,37 @@ def cleanup_old_backups():
             deleted_count += 1
             record.delete()
 
+    # Also clean old Excel exports
+    _cleanup_old_excels(config)
+
     return deleted_count, freed_bytes
+
+
+def _cleanup_old_excels(config):
+    """Remove Excel exports older than retention_days, keep max_backups count."""
+    try:
+        excel_dir = config.get_backup_dir() / 'excel'
+        if not excel_dir.exists():
+            return
+
+        cutoff = timezone.now() - timedelta(days=config.retention_days)
+        cutoff_ts = cutoff.timestamp()
+
+        xlsx_files = sorted(excel_dir.glob('datos_*.xlsx'), key=lambda f: f.stat().st_mtime)
+
+        # Delete by age
+        for f in xlsx_files:
+            if f.stat().st_mtime < cutoff_ts:
+                f.unlink()
+
+        # Enforce max count
+        remaining = sorted(excel_dir.glob('datos_*.xlsx'), key=lambda f: f.stat().st_mtime)
+        excess = len(remaining) - config.max_backups
+        if excess > 0:
+            for f in remaining[:excess]:
+                f.unlink()
+    except Exception:
+        pass
 
 
 # ============================================================
