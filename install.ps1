@@ -29,7 +29,36 @@ function Write-Fail($msg) {
 }
 
 # ============================================================
-# 1. Verificar Python
+# 1. Verificar Git
+# ============================================================
+Write-Step "Verificando Git..."
+
+$gitOk = $false
+try {
+    $gitVer = git --version 2>&1
+    if ($gitVer -match "git version") {
+        Write-Ok "Git encontrado: $gitVer"
+        $gitOk = $true
+    }
+} catch {}
+
+if (-not $gitOk) {
+    Write-Step "Instalando Git via winget..."
+    try {
+        winget install Git.Git --accept-package-agreements --accept-source-agreements --silent
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $gitVer = git --version 2>&1
+        Write-Ok "Git instalado: $gitVer"
+    } catch {
+        Write-Fail "No se pudo instalar Git automaticamente."
+        Write-Host "   Descargalo desde https://git-scm.com/downloads" -ForegroundColor Yellow
+        Write-Host "   (Necesario para recibir actualizaciones)" -ForegroundColor Yellow
+        # No salimos, el sistema funciona sin git, solo no puede actualizarse
+    }
+}
+
+# ============================================================
+# 2. Verificar Python
 # ============================================================
 Write-Step "Verificando Python..."
 
@@ -67,7 +96,7 @@ if (-not $pythonCmd) {
 }
 
 # ============================================================
-# 2. Crear entorno virtual (si no existe)
+# 3. Crear entorno virtual (si no existe)
 # ============================================================
 Write-Step "Verificando entorno virtual..."
 
@@ -87,7 +116,7 @@ if (Test-Path $venvPython) {
 }
 
 # ============================================================
-# 3. Instalar dependencias
+# 4. Instalar dependencias
 # ============================================================
 Write-Step "Instalando/actualizando dependencias..."
 
@@ -101,7 +130,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Ok "Dependencias instaladas"
 
 # ============================================================
-# 4. Migraciones de base de datos
+# 5. Migraciones de base de datos
 # ============================================================
 Write-Step "Ejecutando migraciones..."
 
@@ -113,7 +142,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Ok "Base de datos actualizada"
 
 # ============================================================
-# 5. Crear superusuario (solo si no existe ninguno)
+# 6. Crear superusuario (solo si no existe ninguno)
 # ============================================================
 Write-Step "Verificando superusuario..."
 
@@ -154,7 +183,7 @@ print('OK')
 }
 
 # ============================================================
-# 6. Detener servidor previo (si esta corriendo)
+# 7. Detener servidor previo (si esta corriendo)
 # ============================================================
 Write-Step "Verificando servidor previo..."
 
@@ -176,7 +205,7 @@ if ($running) {
 }
 
 # ============================================================
-# 7. Registrar tarea programada (inicio con Windows)
+# 8. Registrar tarea programada (inicio con Windows)
 # ============================================================
 Write-Step "Configurando inicio automatico..."
 
@@ -204,7 +233,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ============================================================
-# 8. Crear carpeta de backups
+# 9. Crear carpeta de backups
 # ============================================================
 $backupDir = Join-Path $ScriptDir "backups"
 if (-not (Test-Path $backupDir)) {
@@ -213,7 +242,7 @@ if (-not (Test-Path $backupDir)) {
 }
 
 # ============================================================
-# 9. Crear accesos directos en el escritorio
+# 10. Crear accesos directos en el escritorio
 # ============================================================
 Write-Step "Creando accesos directos..."
 
@@ -229,7 +258,7 @@ $shortcut.Save()
 Write-Ok "Acceso directo 'Gastro SaaS' creado en el escritorio"
 
 # ============================================================
-# 10. Iniciar servidor
+# 11. Iniciar servidor
 # ============================================================
 Write-Step "Iniciando servidor..."
 
