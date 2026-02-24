@@ -6,21 +6,6 @@
 {% with active_page='categories' %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-    <!-- Messages -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="mb-4 p-4 rounded-lg border-l-4
-                {% if message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
-                {% elif message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
-                {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
-                <div class="flex justify-between items-center">
-                    <span>{{ message }}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-lg leading-none">&times;</button>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
-
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
@@ -57,9 +42,9 @@
                                 <!-- Name -->
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
-                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color: {{ category.color }}20;">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style="background-color: {{ category.color }}20;">
                                             {% if category.icon %}
-                                                <span class="text-base">{{ category.icon }}</span>
+                                                <span class="text-xs font-semibold leading-none" style="color: {{ category.color }};">{{ category.icon|truncatechars:3 }}</span>
                                             {% else %}
                                                 <svg class="w-4 h-4" style="color: {{ category.color }};" fill="currentColor" viewBox="0 0 24 24">
                                                     <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
@@ -78,7 +63,7 @@
                                 <!-- Icon -->
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     {% if category.icon %}
-                                        <span class="text-lg" title="{{ category.icon }}">{{ category.icon }}</span>
+                                        <span class="text-sm" title="{{ category.icon }}">{{ category.icon }}</span>
                                     {% else %}
                                         <span class="text-sm text-gray-400">-</span>
                                     {% endif %}
@@ -156,9 +141,9 @@
                 <div class="bg-white shadow-sm rounded-lg border border-gray-200 p-4">
                     <div class="flex items-start justify-between">
                         <div class="flex items-center flex-1 min-w-0">
-                            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color: {{ category.color }}20;">
+                            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style="background-color: {{ category.color }}20;">
                                 {% if category.icon %}
-                                    <span class="text-xl">{{ category.icon }}</span>
+                                    <span class="text-xs font-semibold leading-none" style="color: {{ category.color }};">{{ category.icon|truncatechars:3 }}</span>
                                 {% else %}
                                     <div class="w-5 h-5 rounded-full" style="background-color: {{ category.color }};"></div>
                                 {% endif %}

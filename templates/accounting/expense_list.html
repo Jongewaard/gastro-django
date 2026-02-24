@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Gastos - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Gastos{% endblock %}
+
+{# active_page = "expenses" must be passed from the view context #}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">Gastos</h2>
+            <p class="mt-0.5 text-sm text-gray-500">Control de gastos y egresos del negocio.</p>
+        </div>
+        <a href="{% url 'expense_create' %}"
+           class="inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Nuevo Gasto
+        </a>
+    </div>
+
+    <!-- Filtros de fecha -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+        <form method="get" action="" class="px-4 sm:px-6 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div class="flex-1">
+                    <label for="date_from" class="block text-xs font-medium text-gray-500 mb-1">Desde</label>
+                    <input type="date" id="date_from" name="date_from"
+                           value="{{ date_from|date:'Y-m-d' }}"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border">
+                </div>
+                <div class="flex-1">
+                    <label for="date_to" class="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
+                    <input type="date" id="date_to" name="date_to"
+                           value="{{ date_to|date:'Y-m-d' }}"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border">
+                </div>
+                <div class="flex-shrink-0">
+                    <button type="submit"
+                            class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                        Filtrar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resumen Total -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div class="flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/></svg>
+            </div>
+            <div class="min-w-0">
+                <p class="text-xs text-gray-500 font-medium">Total gastos en periodo</p>
+                <p class="text-xl font-bold text-red-600">${{ total_expenses|intcomma }}</p>
+            </div>
+            <div class="ml-auto text-right hidden sm:block">
+                <p class="text-xs text-gray-500">{{ expenses|length }} gasto{{ expenses|length|pluralize:"s" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Gastos -->
+    <div class="bg-white rounded-xl border border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-100">
+            <h3 class="text-sm font-semibold text-gray-900">Listado de Gastos</h3>
+        </div>
+
+        {% if expenses %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="text-left py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Descripcion</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Categoria</th>
+                        <th class="text-right py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Pagado por</th>
+                        <th class="text-left py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Comprobante</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for expense in expenses %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="py-2.5 px-4 sm:px-6 text-gray-700 whitespace-nowrap">{{ expense.date|date:"d/m/Y" }}</td>
+                        <td class="py-2.5 px-2 font-medium text-gray-900 max-w-xs truncate">{{ expense.description }}</td>
+                        <td class="py-2.5 px-2 hidden sm:table-cell">
+                            {% if expense.category %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                {{ expense.category.name }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2.5 px-2 text-right font-semibold text-red-600 whitespace-nowrap">${{ expense.amount|intcomma }}</td>
+                        <td class="py-2.5 px-2 text-gray-500 hidden md:table-cell">{{ expense.paid_by.get_full_name|default:expense.paid_by.username|default:"-" }}</td>
+                        <td class="py-2.5 px-4 sm:px-6 text-gray-500 text-xs hidden lg:table-cell">{{ expense.receipt_number|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="py-12 text-center">
+            <svg class="mx-auto w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
+            <h4 class="mt-3 text-sm font-medium text-gray-900">Sin gastos registrados</h4>
+            <p class="mt-1 text-xs text-gray-500">No se encontraron gastos en el periodo seleccionado.</p>
+            <a href="{% url 'expense_create' %}"
+               class="inline-flex items-center mt-4 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                Registrar Gasto
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

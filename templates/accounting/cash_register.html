@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Caja del Dia - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Caja del Dia{% endblock %}
+
+{# active_page = "cash_register" must be passed from the view context #}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+
+    {% if not open_register %}
+    {# ==================== CAJA CERRADA ==================== #}
+
+    <!-- Abrir Caja -->
+    <div class="max-w-lg mx-auto">
+        <div class="text-center mb-6">
+            <div class="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Caja Cerrada</h2>
+            <p class="mt-1 text-sm text-gray-500">Ingresa el monto de apertura para comenzar el dia.</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gray-50">
+                <h3 class="text-base font-semibold text-gray-900">Abrir Caja</h3>
+            </div>
+            <form method="post" action="{% url 'cash_open' %}" class="px-6 py-6">
+                {% csrf_token %}
+                <div class="mb-5">
+                    <label for="opening_amount" class="block text-sm font-medium text-gray-700 mb-1">
+                        Monto de apertura <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 text-sm">$</span>
+                        </div>
+                        <input type="number" id="opening_amount" name="opening_amount" required
+                               step="0.01" min="0" value="0.00"
+                               placeholder="0.00"
+                               class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Monto de efectivo con el que inicia la caja.</p>
+                </div>
+                <button type="submit"
+                        class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Abrir Caja del Dia
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cajas Recientes -->
+    {% if recent_registers %}
+    <div class="max-w-4xl mx-auto mt-8">
+        <div class="bg-white rounded-xl border border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-900">Cajas Recientes</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-100">
+                            <th class="text-left py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="text-right py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Apertura</th>
+                            <th class="text-right py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Cierre</th>
+                            <th class="text-right py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Diferencia</th>
+                            <th class="text-center py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for reg in recent_registers %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="py-2.5 px-4 sm:px-6 font-medium text-gray-900">{{ reg.opened_at|date:"d/m/Y" }}</td>
+                            <td class="py-2.5 px-2 text-right text-gray-700">${{ reg.opening_amount|intcomma }}</td>
+                            <td class="py-2.5 px-2 text-right text-gray-700">${{ reg.closing_amount|intcomma }}</td>
+                            <td class="py-2.5 px-2 text-right font-medium {% if reg.difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                {% if reg.difference >= 0 %}+{% endif %}${{ reg.difference|intcomma }}
+                            </td>
+                            <td class="py-2.5 px-4 sm:px-6 text-center">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                    {% if reg.status == 'closed' %}bg-gray-100 text-gray-700
+                                    {% elif reg.status == 'closed_with_difference' %}bg-yellow-100 text-yellow-700
+                                    {% else %}bg-green-100 text-green-700{% endif %}">
+                                    {{ reg.get_status_display|default:reg.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    {# ==================== CAJA ABIERTA ==================== #}
+
+    <!-- Header Banner -->
+    <div class="mb-6 rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-200 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-green-900">Caja Abierta - {{ open_register.opened_at|date:"d/m/Y" }}</h2>
+                    <p class="text-sm text-green-700">
+                        Abierta por: {{ open_register.opened_by.get_full_name|default:open_register.opened_by.username }}
+                        a las {{ open_register.opened_at|date:"H:i" }}hs
+                    </p>
+                </div>
+            </div>
+            <div class="flex-shrink-0">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-200 text-green-800">
+                    <span class="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                    Activa
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+        <!-- Apertura -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Apertura</p>
+                    <p class="text-lg font-bold text-gray-900">${{ open_register.opening_amount|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ingresos -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Ingresos</p>
+                    <p class="text-lg font-bold text-green-600">${{ totals.total_income|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Egresos -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Egresos</p>
+                    <p class="text-lg font-bold text-red-600">${{ totals.total_expense|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Balance -->
+        <div class="bg-white rounded-xl border-2 border-blue-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Balance Esperado</p>
+                    <p class="text-lg font-bold text-blue-700">${{ open_register.expected_amount|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Agregar Movimiento -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="text-sm font-semibold text-gray-900">Agregar Movimiento</h3>
+        </div>
+        <form method="post" action="{% url 'cash_movement_add' %}" class="px-4 sm:px-6 py-4"
+              onsubmit="return validateFormFields(this, [{name:'movement_type', label:'Tipo de movimiento'}, {name:'amount', label:'Monto'}])">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                <!-- Tipo -->
+                <div>
+                    <label for="movement_type" class="block text-sm font-medium text-gray-700 mb-1">Tipo <span class="text-red-500">*</span></label>
+                    <select id="movement_type" name="movement_type"
+                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border bg-white">
+                        <option value="">Seleccionar...</option>
+                        <option value="sale">Venta</option>
+                        <option value="expense">Gasto</option>
+                        <option value="withdrawal">Retiro</option>
+                        <option value="deposit">Deposito</option>
+                        <option value="adjustment">Ajuste</option>
+                        <option value="tip">Propina</option>
+                    </select>
+                </div>
+
+                <!-- Monto -->
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Monto <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 text-sm">$</span>
+                        </div>
+                        <input type="number" id="amount" name="amount"
+                               step="0.01" min="0.01"
+                               placeholder="0.00"
+                               class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+                </div>
+
+                <!-- Descripcion -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
+                    <input type="text" id="description" name="description"
+                           placeholder="Detalle del movimiento..."
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Boton -->
+                <div class="flex items-end">
+                    <button type="submit"
+                            class="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                        Agregar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    <!-- Historial de Movimientos -->
+    <div class="bg-white rounded-xl border border-gray-200 mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-900">Movimientos del Dia</h3>
+                <span class="text-xs text-gray-500">{{ movements|length }} movimiento{{ movements|length|pluralize:"s" }}</span>
+            </div>
+        </div>
+
+        {% if movements %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="text-left py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Hora</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Descripcion</th>
+                        <th class="text-right py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                        <th class="text-left py-2.5 px-2 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Referencia</th>
+                        <th class="text-left py-2.5 px-4 sm:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Usuario</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for mov in movements %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="py-2.5 px-4 sm:px-6 text-gray-700">{{ mov.created_at|date:"H:i" }}</td>
+                        <td class="py-2.5 px-2">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if mov.movement_type == 'sale' %}bg-green-100 text-green-700
+                                {% elif mov.movement_type == 'deposit' %}bg-blue-100 text-blue-700
+                                {% elif mov.movement_type == 'tip' %}bg-purple-100 text-purple-700
+                                {% elif mov.movement_type == 'expense' %}bg-red-100 text-red-700
+                                {% elif mov.movement_type == 'withdrawal' %}bg-orange-100 text-orange-700
+                                {% elif mov.movement_type == 'adjustment' %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ mov.get_movement_type_display|default:mov.movement_type }}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-2 text-gray-600 hidden sm:table-cell max-w-xs truncate">{{ mov.description|default:"-" }}</td>
+                        <td class="py-2.5 px-2 text-right font-semibold
+                            {% if mov.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                            {% if mov.amount > 0 %}+{% endif %}${{ mov.amount|intcomma }}
+                        </td>
+                        <td class="py-2.5 px-2 text-gray-500 hidden md:table-cell text-xs">{{ mov.reference|default:"-" }}</td>
+                        <td class="py-2.5 px-4 sm:px-6 text-gray-500 hidden lg:table-cell text-xs">{{ mov.created_by.get_full_name|default:mov.created_by.username|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="py-10 text-center">
+            <svg class="mx-auto w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <p class="mt-3 text-sm text-gray-500">No hay movimientos registrados todavia.</p>
+            <p class="text-xs text-gray-400 mt-1">Los movimientos se registran automaticamente con cada venta.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Cerrar Caja -->
+    <div class="bg-white rounded-xl border-2 border-red-200 shadow-sm">
+        <div class="px-4 sm:px-6 py-4 border-b border-red-100 bg-red-50">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                <h3 class="text-sm font-semibold text-red-800">Cerrar Caja</h3>
+            </div>
+        </div>
+        <form method="post" action="{% url 'cash_close' %}" class="px-4 sm:px-6 py-5">
+            {% csrf_token %}
+            <p class="text-sm text-gray-600 mb-4">
+                Conta el efectivo en caja e ingresa el monto total. El sistema calculara la diferencia con el balance esperado
+                (<strong>${{ open_register.expected_amount|intcomma }}</strong>).
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="closing_amount" class="block text-sm font-medium text-gray-700 mb-1">
+                        Monto de cierre <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 text-sm">$</span>
+                        </div>
+                        <input type="number" id="closing_amount" name="closing_amount" required
+                               step="0.01" min="0"
+                               placeholder="0.00"
+                               class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm py-2.5 px-3 border">
+                    </div>
+                </div>
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                    <textarea id="notes" name="notes" rows="1"
+                              placeholder="Observaciones del cierre..."
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm py-2.5 px-3 border"></textarea>
+                </div>
+            </div>
+
+            <!-- Diferencia en tiempo real -->
+            <div id="difference-preview" class="hidden mb-4 p-3 rounded-lg text-sm font-medium text-center"></div>
+
+            <button type="submit"
+                    onclick="return confirm('Estas seguro que queres cerrar la caja? Esta accion no se puede deshacer.')"
+                    class="w-full sm:w-auto inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                Cerrar Caja
+            </button>
+        </form>
+    </div>
+
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if open_register %}
+<script>
+    // Diferencia en tiempo real al ingresar monto de cierre
+    (function() {
+        var closingInput = document.getElementById('closing_amount');
+        var preview = document.getElementById('difference-preview');
+        var expected = {{ open_register.expected_amount|default:"0" }};
+
+        if (closingInput) {
+            closingInput.addEventListener('input', function() {
+                var val = parseFloat(this.value);
+                if (isNaN(val)) {
+                    preview.classList.add('hidden');
+                    return;
+                }
+                var diff = val - expected;
+                preview.classList.remove('hidden');
+                if (diff >= 0) {
+                    preview.className = 'mb-4 p-3 rounded-lg text-sm font-medium text-center bg-green-50 text-green-700 border border-green-200';
+                    preview.textContent = 'Diferencia: +$' + diff.toFixed(2) + (diff === 0 ? ' (Caja exacta)' : ' (Sobrante)');
+                } else {
+                    preview.className = 'mb-4 p-3 rounded-lg text-sm font-medium text-center bg-red-50 text-red-700 border border-red-200';
+                    preview.textContent = 'Diferencia: -$' + Math.abs(diff).toFixed(2) + ' (Faltante)';
+                }
+            });
+        }
+    })();
+</script>
+{% endif %}
+{% endblock %}

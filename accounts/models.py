@@ -31,7 +31,7 @@ class BusinessType(models.Model):
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
-    business_type = models.ForeignKey(BusinessType, on_delete=models.CASCADE)
+    business_type = models.ForeignKey(BusinessType, on_delete=models.PROTECT)
     owner_name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)

@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load employees_tags %}
+
+{% block title %}Horarios - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Horarios{% endblock %}
+
+{# active_page = "schedule" must be passed from the view context #}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+
+    <!-- Header with week navigation -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">Horarios</h2>
+            <p class="mt-0.5 text-sm text-gray-500">Semana del {{ week_start|date:"d/m/Y" }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="?week={{ prev_week }}"
+               class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+               title="Semana anterior">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <span class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg min-w-[140px] text-center">
+                {% for day in week_days %}{% if forloop.first %}{{ day|date:"d M" }}{% endif %}{% if forloop.last %} - {{ day|date:"d M" }}{% endif %}{% endfor %}
+            </span>
+            <a href="?week={{ next_week }}"
+               class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+               title="Semana siguiente">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+
+    {% if employees %}
+    <!-- Schedule grid -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[800px]">
+                <thead>
+                    <tr class="border-b border-gray-200 bg-gray-50">
+                        <th class="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 min-w-[160px]">
+                            Empleado
+                        </th>
+                        {% for day in week_days %}
+                        <th class="text-center py-3 px-2 text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[120px]">
+                            <div>
+                                {% if forloop.counter == 1 %}Lun
+                                {% elif forloop.counter == 2 %}Mar
+                                {% elif forloop.counter == 3 %}Mie
+                                {% elif forloop.counter == 4 %}Jue
+                                {% elif forloop.counter == 5 %}Vie
+                                {% elif forloop.counter == 6 %}Sab
+                                {% elif forloop.counter == 7 %}Dom
+                                {% endif %}
+                            </div>
+                            <div class="text-xs font-normal text-gray-400 mt-0.5">{{ day|date:"d/m" }}</div>
+                        </th>
+                        {% endfor %}
+                        <th class="text-center py-3 px-3 text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[80px] bg-gray-100">
+                            Total Hs
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for emp in employees %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <!-- Employee name (sticky column) -->
+                        <td class="py-2 px-4 sticky left-0 bg-white z-10 border-r border-gray-100">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <span class="text-xs font-semibold text-purple-700">{{ emp.first_name|make_list|first|upper }}</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 truncate">{{ emp.full_name }}</p>
+                                    <p class="text-xs text-gray-500">{{ emp.get_position_display }}</p>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Schedule cells for each day -->
+                        {% for day in week_days %}
+                        {% with day_str=day|date:"Y-m-d" emp_schedules=schedule_grid|dict_get:emp.id %}
+                        {% with sched=emp_schedules|dict_get:day_str %}
+                        <td class="py-1 px-1 text-center">
+                            <div class="schedule-cell relative group" data-employee="{{ emp.id }}" data-date="{{ day_str }}">
+
+                                {% if sched %}
+                                <!-- Existing shift -->
+                                <div class="schedule-display cursor-pointer rounded-lg bg-blue-50 border border-blue-200 px-2 py-1.5 hover:bg-blue-100 transition-colors"
+                                     onclick="toggleForm(this)">
+                                    <p class="text-xs font-semibold text-blue-700">{{ sched.shift_start|time:"H:i" }} - {{ sched.shift_end|time:"H:i" }}</p>
+                                    {% if sched.break_minutes %}
+                                    <p class="text-xs text-blue-500 mt-0.5">Desc: {{ sched.break_minutes }}min</p>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <!-- Empty cell -->
+                                <div class="schedule-display cursor-pointer rounded-lg border border-dashed border-gray-200 px-2 py-3 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+                                     onclick="toggleForm(this)">
+                                    <svg class="w-4 h-4 mx-auto text-gray-300 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                </div>
+                                {% endif %}
+
+                                <!-- Inline form (hidden by default) -->
+                                <form method="POST" action="{% url 'schedule_save' %}"
+                                      class="schedule-form hidden absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-white rounded-xl border border-gray-200 shadow-lg p-3 w-52"
+                                      onclick="event.stopPropagation()"
+                                      onsubmit="return validateFormFields(this, [{name:'shift_start', label:'Hora de entrada'}, {name:'shift_end', label:'Hora de salida'}])"
+                                    {% csrf_token %}
+                                    <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                                    <input type="hidden" name="date" value="{{ day_str }}">
+
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-xs font-semibold text-gray-700">
+                                            {% if forloop.parentloop.counter == 1 %}Lun{% elif forloop.parentloop.counter == 2 %}Mar{% elif forloop.parentloop.counter == 3 %}Mie{% elif forloop.parentloop.counter == 4 %}Jue{% elif forloop.parentloop.counter == 5 %}Vie{% elif forloop.parentloop.counter == 6 %}Sab{% elif forloop.parentloop.counter == 7 %}Dom{% endif %}
+                                            {{ day|date:"d/m" }}
+                                        </span>
+                                        <button type="button" onclick="closeForm(this)" class="text-gray-400 hover:text-gray-600">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Entrada</label>
+                                            <input type="time" name="shift_start"
+                                                   value="{% if sched %}{{ sched.shift_start|time:'H:i' }}{% endif %}"
+                                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Salida</label>
+                                            <input type="time" name="shift_end"
+                                                   value="{% if sched %}{{ sched.shift_end|time:'H:i' }}{% endif %}"
+                                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Descanso (min)</label>
+                                            <input type="number" name="break_minutes"
+                                                   value="{% if sched %}{{ sched.break_minutes|default:'0' }}{% else %}0{% endif %}"
+                                                   min="0" step="5"
+                                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                                        </div>
+                                    </div>
+
+                                    <div class="flex gap-1.5 mt-3">
+                                        <button type="submit"
+                                                class="flex-1 px-2 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+                                            Guardar
+                                        </button>
+                                        <button type="button" onclick="closeForm(this)"
+                                                class="px-2 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </form>
+
+                            </div>
+                        </td>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endfor %}
+
+                        <!-- Total hours column -->
+                        <td class="py-2 px-3 text-center bg-gray-50/50 border-l border-gray-100">
+                            {% with emp_schedules=schedule_grid|dict_get:emp.id %}
+                            {% if emp_schedules %}
+                            {% total_hours emp_schedules as weekly_hours %}
+                            <span class="text-sm font-bold {% if weekly_hours > 48 %}text-red-600{% elif weekly_hours > 40 %}text-amber-600{% else %}text-gray-900{% endif %}">
+                                {{ weekly_hours }}h
+                            </span>
+                            {% else %}
+                            <span class="text-sm text-gray-400">0h</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        <div class="flex items-center gap-1.5">
+            <div class="w-4 h-4 rounded bg-blue-50 border border-blue-200"></div>
+            <span>Turno asignado</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <div class="w-4 h-4 rounded border border-dashed border-gray-300"></div>
+            <span>Sin turno (click para agregar)</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="font-bold text-amber-600">40+h</span>
+            <span>Semana larga</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="font-bold text-red-600">48+h</span>
+            <span>Excede limite</span>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="bg-white rounded-xl border border-gray-200 py-16 text-center">
+        <svg class="mx-auto w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <h3 class="mt-4 text-sm font-semibold text-gray-900">Sin empleados para asignar horarios</h3>
+        <p class="mt-1 text-sm text-gray-500">Primero necesitas agregar empleados al sistema.</p>
+        <a href="{% url 'employee_create' %}"
+           class="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Agregar Empleado
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle schedule inline form
+    function toggleForm(displayEl) {
+        // Close all other open forms first
+        document.querySelectorAll('.schedule-form').forEach(function(f) {
+            f.classList.add('hidden');
+        });
+
+        var cell = displayEl.closest('.schedule-cell');
+        var form = cell.querySelector('.schedule-form');
+        if (form) {
+            form.classList.remove('hidden');
+            // Focus on the first time input
+            var firstInput = form.querySelector('input[type="time"]');
+            if (firstInput) firstInput.focus();
+        }
+    }
+
+    function closeForm(btn) {
+        var form = btn.closest('.schedule-form');
+        if (form) {
+            form.classList.add('hidden');
+        }
+    }
+
+    // Close forms when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.schedule-cell')) {
+            document.querySelectorAll('.schedule-form').forEach(function(f) {
+                f.classList.add('hidden');
+            });
+        }
+    });
+</script>
+{% endblock %}

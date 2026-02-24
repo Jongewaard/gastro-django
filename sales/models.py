@@ -47,7 +47,7 @@ class Sale(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     
     # Payment info
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE)
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT)
     payment_reference = models.CharField(max_length=100, blank=True)
     is_paid = models.BooleanField(default=False)
     

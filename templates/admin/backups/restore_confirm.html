@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Restaurar Backup{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 20px 0;">
+    <h2 style="color: #c00; margin-bottom: 15px;">Restaurar Base de Datos</h2>
+
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
+        <strong>ATENCION:</strong> Esta accion reemplazara TODA la base de datos actual con el contenido del backup seleccionado.
+        Se creara un backup de seguridad automatico antes de restaurar.
+    </div>
+
+    <table style="margin-bottom: 20px; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 5px 15px 5px 0; font-weight: bold;">Archivo:</td>
+            <td>{{ record.filename }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px 5px 0; font-weight: bold;">Fecha:</td>
+            <td>{{ record.created_at|date:"d/m/Y H:i:s" }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px 5px 0; font-weight: bold;">Tamano:</td>
+            <td>{{ record.file_size_display }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 5px 15px 5px 0; font-weight: bold;">Tipo:</td>
+            <td>{{ record.get_trigger_display }}</td>
+        </tr>
+    </table>
+
+    <form method="post">
+        {% csrf_token %}
+        <p style="margin-bottom: 10px;">
+            Para confirmar, escribi <strong>RESTAURAR</strong> en el campo de abajo:
+        </p>
+        <input type="text" name="confirm" placeholder="Escribi RESTAURAR"
+               style="padding: 8px 12px; border: 2px solid #c00; border-radius: 4px; font-size: 14px; width: 200px; margin-bottom: 15px;"
+               autocomplete="off">
+        <br>
+        <input type="submit" value="Restaurar Base de Datos"
+               style="background: #c00; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+        <a href="../../" style="margin-left: 15px; color: #666;">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

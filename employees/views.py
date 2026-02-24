@@ -21,6 +21,7 @@ def employee_list(request):
 
     context = {
         'employees': employees,
+        'active_page': 'employees',
     }
     return render(request, 'employees/employee_list.html', context)
 
@@ -60,6 +61,8 @@ def employee_create(request):
             except ValueError:
                 hire_date = timezone.now().date()
 
+            is_active = request.POST.get('is_active') == 'on'
+
             employee = Employee.objects.create(
                 tenant=tenant,
                 first_name=first_name,
@@ -71,13 +74,15 @@ def employee_create(request):
                 hire_date=hire_date,
                 hourly_rate=hourly_rate,
                 monthly_salary=monthly_salary,
+                is_active=is_active,
             )
             messages.success(request, f'Empleado "{employee.full_name}" creado exitosamente.')
-            return redirect('employee_list')
+            return redirect('employees')
 
     context = {
         'position_choices': Employee.POSITION_CHOICES,
         'editing': False,
+        'active_page': 'employees',
     }
     return render(request, 'employees/employee_form.html', context)
 
@@ -119,6 +124,8 @@ def employee_edit(request, employee_id):
             except ValueError:
                 hire_date = employee.hire_date
 
+            is_active = request.POST.get('is_active') == 'on'
+
             employee.first_name = first_name
             employee.last_name = last_name
             employee.position = position
@@ -128,15 +135,17 @@ def employee_edit(request, employee_id):
             employee.hire_date = hire_date
             employee.hourly_rate = hourly_rate
             employee.monthly_salary = monthly_salary
+            employee.is_active = is_active
             employee.save()
 
             messages.success(request, f'Empleado "{employee.full_name}" actualizado exitosamente.')
-            return redirect('employee_list')
+            return redirect('employees')
 
     context = {
         'employee': employee,
         'position_choices': Employee.POSITION_CHOICES,
         'editing': True,
+        'active_page': 'employees',
     }
     return render(request, 'employees/employee_form.html', context)
 
@@ -150,11 +159,18 @@ def employee_delete(request, employee_id):
         return redirect('dashboard')
 
     employee = get_object_or_404(Employee, id=employee_id, tenant=tenant)
-    employee_name = employee.full_name
-    employee.delete()
 
-    messages.success(request, f'Empleado "{employee_name}" eliminado.')
-    return redirect('employee_list')
+    # Soft delete if employee has work logs or schedules
+    if employee.work_logs.exists() or employee.schedules.exists():
+        employee.is_active = False
+        employee.save(update_fields=['is_active'])
+        messages.warning(request, f'Empleado "{employee.full_name}" desactivado (tiene registros de asistencia).')
+    else:
+        employee_name = employee.full_name
+        employee.delete()
+        messages.success(request, f'Empleado "{employee_name}" eliminado.')
+
+    return redirect('employees')
 
 
 @login_required
@@ -169,7 +185,7 @@ def schedule_view(request):
         return redirect('dashboard')
 
     # Determine week start (Monday)
-    week_start_str = request.GET.get('week_start', '')
+    week_start_str = request.GET.get('week', '') or request.GET.get('week_start', '')
     try:
         week_start = datetime.date.fromisoformat(week_start_str)
     except (ValueError, TypeError):
@@ -199,16 +215,13 @@ def schedule_view(request):
     for schedule in schedules:
         schedule_map[(schedule.employee_id, schedule.date)] = schedule
 
-    # Build schedule grid: list of {employee, days: [schedule_or_none for each day]}
-    schedule_grid = []
+    # Build schedule grid: {employee_id: {date_iso: schedule_or_none}}
+    schedule_grid = {}
     for emp in employees:
-        days = []
+        emp_schedules = {}
         for day in week_days:
-            days.append(schedule_map.get((emp.id, day)))
-        schedule_grid.append({
-            'employee': emp,
-            'days': days,
-        })
+            emp_schedules[day.isoformat()] = schedule_map.get((emp.id, day))
+        schedule_grid[emp.id] = emp_schedules
 
     context = {
         'week_start': week_start,
@@ -218,6 +231,7 @@ def schedule_view(request):
         'next_week': next_week,
         'schedule_grid': schedule_grid,
         'employees': employees,
+        'active_page': 'schedule',
     }
     return render(request, 'employees/schedule.html', context)
 
@@ -241,7 +255,7 @@ def schedule_save(request):
 
     if not employee_id or not date_str or not shift_start_str or not shift_end_str:
         messages.error(request, 'Todos los campos son obligatorios.')
-        return redirect('schedule_view')
+        return redirect('schedule')
 
     employee = get_object_or_404(Employee, id=employee_id, tenant=tenant)
 
@@ -249,14 +263,14 @@ def schedule_save(request):
         schedule_date = datetime.date.fromisoformat(date_str)
     except ValueError:
         messages.error(request, 'Fecha inválida.')
-        return redirect('schedule_view')
+        return redirect('schedule')
 
     try:
         shift_start = datetime.time.fromisoformat(shift_start_str)
         shift_end = datetime.time.fromisoformat(shift_end_str)
     except ValueError:
         messages.error(request, 'Hora de inicio o fin inválida.')
-        return redirect('schedule_view')
+        return redirect('schedule')
 
     try:
         break_minutes = int(break_minutes)
@@ -281,7 +295,7 @@ def schedule_save(request):
 
     # Redirect back to the same week view
     week_start = schedule_date - datetime.timedelta(days=schedule_date.weekday())
-    return redirect(f'/employees/schedule/?week_start={week_start.isoformat()}')
+    return redirect(f'/employees/schedule/?week={week_start.isoformat()}')
 
 
 @login_required
@@ -313,7 +327,7 @@ def attendance_view(request):
         log = log_map.get(emp.id)
         attendance.append({
             'employee': emp,
-            'work_log': log,
+            'worklog': log,
             'clock_in': log.clock_in if log else None,
             'clock_out': log.clock_out if log else None,
             'status': log.status if log else 'absent',
@@ -321,9 +335,10 @@ def attendance_view(request):
         })
 
     context = {
-        'attendance': attendance,
+        'attendance_data': attendance,
         'today': today,
         'status_choices': WorkLog.STATUS_CHOICES,
+        'active_page': 'attendance',
     }
     return render(request, 'employees/attendance.html', context)
 
@@ -350,7 +365,7 @@ def attendance_save(request):
 
     if not employee_id or not date_str or not clock_in_str:
         messages.error(request, 'Empleado, fecha y hora de entrada son obligatorios.')
-        return redirect('attendance_view')
+        return redirect('attendance')
 
     employee = get_object_or_404(Employee, id=employee_id, tenant=tenant)
 
@@ -358,13 +373,13 @@ def attendance_save(request):
         log_date = datetime.date.fromisoformat(date_str)
     except ValueError:
         messages.error(request, 'Fecha inválida.')
-        return redirect('attendance_view')
+        return redirect('attendance')
 
     try:
         clock_in = datetime.time.fromisoformat(clock_in_str)
     except ValueError:
         messages.error(request, 'Hora de entrada inválida.')
-        return redirect('attendance_view')
+        return redirect('attendance')
 
     clock_out = None
     if clock_out_str:
@@ -372,7 +387,7 @@ def attendance_save(request):
             clock_out = datetime.time.fromisoformat(clock_out_str)
         except ValueError:
             messages.error(request, 'Hora de salida inválida.')
-            return redirect('attendance_view')
+            return redirect('attendance')
 
     try:
         break_minutes = int(break_minutes)
@@ -405,4 +420,4 @@ def attendance_save(request):
 
     action = 'registrada' if created else 'actualizada'
     messages.success(request, f'Asistencia de {employee.full_name} {action}.')
-    return redirect('attendance_view')
+    return redirect('attendance')

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Nuevo Gasto - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Nuevo Gasto{% endblock %}
+
+{# active_page = "expenses" must be passed from the view context #}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-3xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-6">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-2">
+                <li>
+                    <a href="{% url 'expenses' %}" class="text-sm text-gray-500 hover:text-gray-700">Gastos</a>
+                </li>
+                <li>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </li>
+                <li>
+                    <span class="text-sm text-gray-900 font-medium">Nuevo Gasto</span>
+                </li>
+            </ol>
+        </nav>
+        <h2 class="text-xl font-bold text-gray-900">Nuevo Gasto</h2>
+        <p class="mt-0.5 text-sm text-gray-500">Completa los datos para registrar un nuevo gasto.</p>
+    </div>
+
+    <!-- Formulario -->
+    <form method="post" action="" class="space-y-6"
+          onsubmit="return validateFormFields(this, [{name:'description', label:'Descripcion'}, {name:'amount', label:'Monto'}, {name:'category', label:'Categoria'}, {name:'date', label:'Fecha'}])">
+        {% csrf_token %}
+
+        <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-base font-semibold text-gray-900">Datos del Gasto</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-5">
+
+                <!-- Descripcion -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                        Descripcion <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="description" name="description" required maxlength="255"
+                           placeholder="Ej: Compra de insumos, servicio de limpieza..."
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Monto y Categoria -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    <!-- Monto -->
+                    <div>
+                        <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">
+                            Monto <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 text-sm">$</span>
+                            </div>
+                            <input type="number" id="amount" name="amount" required
+                                   step="0.01" min="0.01"
+                                   placeholder="0.00"
+                                   class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        </div>
+                    </div>
+
+                    <!-- Categoria -->
+                    <div>
+                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
+                            Categoria <span class="text-red-500">*</span>
+                        </label>
+                        <select id="category" name="category" required
+                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border bg-white">
+                            <option value="">Seleccionar categoria...</option>
+                            {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <!-- Fecha y Comprobante -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    <!-- Fecha -->
+                    <div>
+                        <label for="date" class="block text-sm font-medium text-gray-700 mb-1">
+                            Fecha <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" id="date" name="date" required
+                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+
+                    <!-- Numero de Comprobante -->
+                    <div>
+                        <label for="receipt_number" class="block text-sm font-medium text-gray-700 mb-1">
+                            Nro. de comprobante
+                        </label>
+                        <input type="text" id="receipt_number" name="receipt_number" maxlength="100"
+                               placeholder="Opcional"
+                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+
+                </div>
+
+                <!-- Notas -->
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
+                        Notas
+                    </label>
+                    <textarea id="notes" name="notes" rows="3"
+                              placeholder="Observaciones adicionales..."
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border"></textarea>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+            <a href="{% url 'expenses' %}"
+               class="inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Guardar Gasto
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set fecha por defecto a hoy
+    (function() {
+        var dateInput = document.getElementById('date');
+        if (dateInput && !dateInput.value) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = yyyy + '-' + mm + '-' + dd;
+        }
+    })();
+</script>
+{% endblock %}

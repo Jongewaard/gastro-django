@@ -27,6 +27,7 @@ def product_list(request):
     context = {
         'categories': categories,
         'products': products,
+        'active_page': 'products',
     }
     return render(request, 'products/product_list.html', context)
 
@@ -46,7 +47,7 @@ def product_create(request):
             base_price = request.POST.get('base_price', '0')
             has_variants = request.POST.get('has_variants') == 'on'
             requires_preparation = request.POST.get('requires_preparation') == 'on'
-            is_active = request.POST.get('is_active', 'on') == 'on'
+            is_active = request.POST.get('is_active') == 'on'
 
             if not name:
                 messages.error(request, 'El nombre del producto es obligatorio.')
@@ -78,7 +79,7 @@ def product_create(request):
             )
 
             messages.success(request, f'Producto "{product.name}" creado exitosamente.')
-            return redirect('product_list')
+            return redirect('products')
 
         except ValueError:
             # Re-render form with existing data
@@ -88,6 +89,7 @@ def product_create(request):
     context = {
         'categories': categories,
         'editing': False,
+        'active_page': 'products',
     }
     return render(request, 'products/product_form.html', context)
 
@@ -109,7 +111,7 @@ def product_edit(request, product_id):
             base_price = request.POST.get('base_price', '0')
             has_variants = request.POST.get('has_variants') == 'on'
             requires_preparation = request.POST.get('requires_preparation') == 'on'
-            is_active = request.POST.get('is_active', 'on') == 'on'
+            is_active = request.POST.get('is_active') == 'on'
 
             if not name:
                 messages.error(request, 'El nombre del producto es obligatorio.')
@@ -139,7 +141,7 @@ def product_edit(request, product_id):
             product.save()
 
             messages.success(request, f'Producto "{product.name}" actualizado exitosamente.')
-            return redirect('product_list')
+            return redirect('products')
 
         except ValueError:
             pass
@@ -149,6 +151,7 @@ def product_edit(request, product_id):
         'product': product,
         'categories': categories,
         'editing': True,
+        'active_page': 'products',
     }
     return render(request, 'products/product_form.html', context)
 
@@ -162,11 +165,18 @@ def product_delete(request, product_id):
         return redirect('dashboard')
 
     product = get_object_or_404(Product, id=product_id, tenant=tenant)
-    product_name = product.name
-    product.delete()
 
-    messages.success(request, f'Producto "{product_name}" eliminado.')
-    return redirect('product_list')
+    # Check if product has sales history - soft delete instead
+    if product.saleitem_set.exists():
+        product.is_active = False
+        product.save(update_fields=['is_active'])
+        messages.warning(request, f'Producto "{product.name}" desactivado (tiene historial de ventas).')
+    else:
+        product_name = product.name
+        product.delete()
+        messages.success(request, f'Producto "{product_name}" eliminado.')
+
+    return redirect('products')
 
 
 @login_required
@@ -183,7 +193,7 @@ def product_toggle(request, product_id):
 
     status = 'activado' if product.is_active else 'desactivado'
     messages.success(request, f'Producto "{product.name}" {status}.')
-    return redirect('product_list')
+    return redirect('products')
 
 
 # --- Category views ---
@@ -203,6 +213,7 @@ def category_list(request):
 
     context = {
         'categories': categories,
+        'active_page': 'categories',
     }
     return render(request, 'products/category_list.html', context)
 
@@ -242,10 +253,11 @@ def category_create(request):
                     sort_order=sort_order,
                 )
                 messages.success(request, f'Categoría "{category.name}" creada exitosamente.')
-                return redirect('category_list')
+                return redirect('categories')
 
     context = {
         'editing': False,
+        'active_page': 'categories',
     }
     return render(request, 'products/category_form.html', context)
 
@@ -286,11 +298,12 @@ def category_edit(request, category_id):
                 category.save()
 
                 messages.success(request, f'Categoría "{category.name}" actualizada exitosamente.')
-                return redirect('category_list')
+                return redirect('categories')
 
     context = {
         'category': category,
         'editing': True,
+        'active_page': 'categories',
     }
     return render(request, 'products/category_form.html', context)
 
@@ -311,10 +324,10 @@ def category_delete(request, category_id):
             request,
             f'No se puede eliminar la categoría "{category.name}" porque tiene productos asociados.'
         )
-        return redirect('category_list')
+        return redirect('categories')
 
     category_name = category.name
     category.delete()
 
     messages.success(request, f'Categoría "{category_name}" eliminada.')
-    return redirect('category_list')
+    return redirect('categories')

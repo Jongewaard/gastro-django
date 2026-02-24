@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+
+{% block title %}Movimientos de Stock - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Movimientos{% endblock %}
+
+{% block content %}
+{% with active_page='stock_movements' %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">Movimientos de Stock</h2>
+            <p class="mt-0.5 text-sm text-gray-500">Registro de entradas, salidas y ajustes de inventario</p>
+        </div>
+    </div>
+
+    <!-- Inline Form: Nuevo Movimiento -->
+    <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                <h3 class="text-sm font-semibold text-gray-900">Nuevo Movimiento</h3>
+            </div>
+        </div>
+        <form method="post" action="{% url 'stock_movement_add' %}" class="px-4 sm:px-6 py-5"
+              onsubmit="return validateFormFields(this, [{name:'ingredient_id', label:'Ingrediente'}, {name:'movement_type', label:'Tipo de movimiento'}, {name:'quantity', label:'Cantidad'}])">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+
+                <!-- Ingrediente -->
+                <div class="lg:col-span-2">
+                    <label for="mv_ingredient" class="block text-xs font-medium text-gray-700 mb-1">
+                        Ingrediente <span class="text-red-500">*</span>
+                    </label>
+                    <select id="mv_ingredient" name="ingredient_id"
+                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border bg-white">
+                        <option value="">Seleccionar...</option>
+                        {% for ing in ingredients %}
+                            <option value="{{ ing.id }}">{{ ing.name }} ({{ ing.current_stock }} {{ ing.unit }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Tipo de Movimiento -->
+                <div>
+                    <label for="mv_type" class="block text-xs font-medium text-gray-700 mb-1">
+                        Tipo <span class="text-red-500">*</span>
+                    </label>
+                    <select id="mv_type" name="movement_type"
+                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border bg-white">
+                        <option value="">Tipo...</option>
+                        <option value="compra">Compra</option>
+                        <option value="uso">Uso</option>
+                        <option value="ajuste">Ajuste</option>
+                        <option value="desperdicio">Desperdicio</option>
+                        <option value="devolucion">Devolucion</option>
+                    </select>
+                </div>
+
+                <!-- Cantidad -->
+                <div>
+                    <label for="mv_quantity" class="block text-xs font-medium text-gray-700 mb-1">
+                        Cantidad <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="mv_quantity" name="quantity"
+                           step="0.01" min="0.01"
+                           placeholder="0.00"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border">
+                </div>
+
+                <!-- Costo Unitario -->
+                <div>
+                    <label for="mv_cost" class="block text-xs font-medium text-gray-700 mb-1">
+                        Costo Unitario
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 text-xs">$</span>
+                        </div>
+                        <input type="number" id="mv_cost" name="unit_cost"
+                               step="0.01" min="0"
+                               placeholder="0.00"
+                               class="block w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border">
+                    </div>
+                </div>
+
+                <!-- Notas (full width) -->
+                <div class="sm:col-span-2 lg:col-span-5">
+                    <label for="mv_notes" class="block text-xs font-medium text-gray-700 mb-1">
+                        Notas
+                    </label>
+                    <input type="text" id="mv_notes" name="notes" maxlength="255"
+                           placeholder="Observaciones opcionales..."
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border">
+                </div>
+
+                <!-- Submit button -->
+                <div class="flex items-end">
+                    <button type="submit"
+                            class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Registrar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-4 mb-6">
+        <form method="get" action="" class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+            <div class="flex-1 w-full sm:w-auto">
+                <label for="filter_ingredient" class="block text-xs font-medium text-gray-700 mb-1">Filtrar por Ingrediente</label>
+                <select id="filter_ingredient" name="ingredient_id"
+                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3 border bg-white">
+                    <option value="">Todos los ingredientes</option>
+                    {% for ing in ingredients %}
+                        <option value="{{ ing.id }}" {% if selected_ingredient and selected_ingredient == ing.id %}selected{% endif %}>{{ ing.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                    Filtrar
+                </button>
+                {% if selected_ingredient %}
+                <a href="{% url 'stock_movements' %}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    Limpiar
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if movements %}
+    <!-- Movements Table -->
+    <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 sm:px-6 py-3 border-b border-gray-100 bg-gray-50">
+            <p class="text-xs text-gray-500">Mostrando los ultimos {{ movements|length }} movimientos</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingrediente</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Costo Unit.</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Costo Total</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Notas</th>
+                        <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Usuario</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for mv in movements %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+
+                        <!-- Fecha/Hora -->
+                        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ mv.created_at|date:"d/m/Y" }}</div>
+                            <div class="text-xs text-gray-500">{{ mv.created_at|date:"H:i" }}</div>
+                        </td>
+
+                        <!-- Ingrediente -->
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="text-sm font-medium text-gray-900">{{ mv.ingredient.name }}</span>
+                        </td>
+
+                        <!-- Tipo (badge) -->
+                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                            {% if mv.movement_type == 'compra' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Compra</span>
+                            {% elif mv.movement_type == 'uso' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Uso</span>
+                            {% elif mv.movement_type == 'ajuste' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Ajuste</span>
+                            {% elif mv.movement_type == 'desperdicio' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Desperdicio</span>
+                            {% elif mv.movement_type == 'devolucion' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Devolucion</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ mv.movement_type }}</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Cantidad -->
+                        <td class="px-4 py-3 whitespace-nowrap text-right">
+                            <span class="text-sm font-semibold
+                                {% if mv.movement_type == 'compra' or mv.movement_type == 'devolucion' or mv.movement_type == 'ajuste' %}text-green-700
+                                {% else %}text-red-700{% endif %}">
+                                {% if mv.movement_type == 'compra' or mv.movement_type == 'devolucion' %}+{% elif mv.movement_type == 'uso' or mv.movement_type == 'desperdicio' %}-{% endif %}{{ mv.quantity }}
+                            </span>
+                            <span class="text-xs text-gray-500 ml-1">{{ mv.ingredient.unit }}</span>
+                        </td>
+
+                        <!-- Costo Unitario -->
+                        <td class="px-4 py-3 whitespace-nowrap text-right hidden md:table-cell">
+                            {% if mv.unit_cost %}
+                                <span class="text-sm text-gray-600">${{ mv.unit_cost }}</span>
+                            {% else %}
+                                <span class="text-sm text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Costo Total -->
+                        <td class="px-4 py-3 whitespace-nowrap text-right hidden md:table-cell">
+                            {% if mv.total_cost %}
+                                <span class="text-sm font-medium text-gray-900">${{ mv.total_cost }}</span>
+                            {% else %}
+                                <span class="text-sm text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Notas -->
+                        <td class="px-4 py-3 hidden lg:table-cell">
+                            {% if mv.notes %}
+                                <span class="text-sm text-gray-600 max-w-xs truncate block">{{ mv.notes|truncatechars:50 }}</span>
+                            {% else %}
+                                <span class="text-sm text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Usuario -->
+                        <td class="px-4 sm:px-6 py-3 whitespace-nowrap hidden lg:table-cell">
+                            {% if mv.created_by %}
+                                <span class="text-sm text-gray-600">{{ mv.created_by.get_full_name|default:mv.created_by.username }}</span>
+                            {% else %}
+                                <span class="text-sm text-gray-400">Sistema</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="sm:hidden space-y-3 mt-4">
+        {% for mv in movements %}
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200 p-4">
+            <div class="flex items-start justify-between mb-2">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900">{{ mv.ingredient.name }}</p>
+                    <p class="text-xs text-gray-500">{{ mv.created_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div class="ml-2">
+                    {% if mv.movement_type == 'compra' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Compra</span>
+                    {% elif mv.movement_type == 'uso' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Uso</span>
+                    {% elif mv.movement_type == 'ajuste' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Ajuste</span>
+                    {% elif mv.movement_type == 'desperdicio' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Desperdicio</span>
+                    {% elif mv.movement_type == 'devolucion' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Devolucion</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <p class="text-xs text-gray-500">Cantidad</p>
+                    <p class="text-sm font-semibold
+                        {% if mv.movement_type == 'compra' or mv.movement_type == 'devolucion' %}text-green-700
+                        {% else %}text-red-700{% endif %}">
+                        {% if mv.movement_type == 'compra' or mv.movement_type == 'devolucion' %}+{% elif mv.movement_type == 'uso' or mv.movement_type == 'desperdicio' %}-{% endif %}{{ mv.quantity }}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Costo Unit.</p>
+                    <p class="text-sm text-gray-600">{% if mv.unit_cost %}${{ mv.unit_cost }}{% else %}-{% endif %}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Total</p>
+                    <p class="text-sm font-medium text-gray-900">{% if mv.total_cost %}${{ mv.total_cost }}{% else %}-{% endif %}</p>
+                </div>
+            </div>
+            {% if mv.notes %}
+            <div class="mt-2 pt-2 border-t border-gray-100">
+                <p class="text-xs text-gray-500">{{ mv.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+        <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+        </svg>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">Sin movimientos registrados</h3>
+        <p class="mt-2 text-sm text-gray-600 max-w-md mx-auto">
+            Utiliza el formulario de arriba para registrar el primer movimiento de stock.
+        </p>
+    </div>
+    {% endif %}
+
+</div>
+{% endwith %}
+{% endblock %}

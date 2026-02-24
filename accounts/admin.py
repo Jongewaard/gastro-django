@@ -26,7 +26,7 @@ class TenantAdmin(admin.ModelAdmin):
             'fields': ('owner_name', 'email', 'phone', 'address')
         }),
         ('Configuración', {
-            'fields': ('config', 'timezone', 'currency'),
+            'fields': ('config', 'timezone', 'currency', 'tax_rate'),
             'classes': ('collapse',)
         }),
         ('Fechas', {

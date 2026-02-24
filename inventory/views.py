@@ -22,12 +22,16 @@ def ingredient_list(request):
 
     # Add stock status annotations
     low_stock = ingredients.filter(current_stock__lte=F('min_stock'))
-    normal_stock = ingredients.filter(current_stock__gt=F('min_stock'))
+
+    # Calculate total stock value
+    total_value = sum(i.stock_value for i in ingredients)
 
     context = {
         'ingredients': ingredients,
         'low_stock_count': low_stock.count(),
         'total_count': ingredients.count(),
+        'total_value': total_value,
+        'active_page': 'inventory',
     }
     return render(request, 'inventory/ingredient_list.html', context)
 
@@ -81,13 +85,14 @@ def ingredient_create(request):
                     supplier=supplier,
                 )
                 messages.success(request, f'Ingrediente "{ingredient.name}" creado exitosamente.')
-                return redirect('ingredient_list')
+                return redirect('inventory')
 
     suppliers = Supplier.objects.filter(tenant=tenant, is_active=True).order_by('name')
     context = {
         'suppliers': suppliers,
         'unit_choices': Ingredient.UNIT_CHOICES,
         'editing': False,
+        'active_page': 'inventory',
     }
     return render(request, 'inventory/ingredient_form.html', context)
 
@@ -140,7 +145,7 @@ def ingredient_edit(request, ingredient_id):
                 ingredient.save()
 
                 messages.success(request, f'Ingrediente "{ingredient.name}" actualizado exitosamente.')
-                return redirect('ingredient_list')
+                return redirect('inventory')
 
     suppliers = Supplier.objects.filter(tenant=tenant, is_active=True).order_by('name')
     context = {
@@ -148,6 +153,7 @@ def ingredient_edit(request, ingredient_id):
         'suppliers': suppliers,
         'unit_choices': Ingredient.UNIT_CHOICES,
         'editing': True,
+        'active_page': 'inventory',
     }
     return render(request, 'inventory/ingredient_form.html', context)
 
@@ -165,7 +171,7 @@ def ingredient_delete(request, ingredient_id):
     ingredient.delete()
 
     messages.success(request, f'Ingrediente "{ingredient_name}" eliminado.')
-    return redirect('ingredient_list')
+    return redirect('inventory')
 
 
 @login_required
@@ -201,6 +207,8 @@ def stock_movements(request):
         'movements': movements,
         'ingredients': ingredients,
         'ingredient_filter': ingredient_filter,
+        'selected_ingredient': ingredient_filter,
+        'active_page': 'stock_movements',
     }
     return render(request, 'inventory/stock_movements.html', context)
 
@@ -282,6 +290,7 @@ def supplier_list(request):
 
     context = {
         'suppliers': suppliers,
+        'active_page': 'suppliers',
     }
     return render(request, 'inventory/supplier_list.html', context)
 
@@ -314,10 +323,11 @@ def supplier_create(request):
                 notes=notes,
             )
             messages.success(request, f'Proveedor "{supplier.name}" creado exitosamente.')
-            return redirect('supplier_list')
+            return redirect('suppliers')
 
     context = {
         'editing': False,
+        'active_page': 'suppliers',
     }
     return render(request, 'inventory/supplier_form.html', context)
 
@@ -351,10 +361,11 @@ def supplier_edit(request, supplier_id):
             supplier.save()
 
             messages.success(request, f'Proveedor "{supplier.name}" actualizado exitosamente.')
-            return redirect('supplier_list')
+            return redirect('suppliers')
 
     context = {
         'supplier': supplier,
         'editing': True,
+        'active_page': 'suppliers',
     }
     return render(request, 'inventory/supplier_form.html', context)

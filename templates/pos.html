@@ -226,6 +226,8 @@
 
 let cart = [];
 
+// showAlert is now provided globally by base.html (as alias of showToast)
+
 /**
  * Get CSRF token from cookies for fetch requests.
  */
@@ -280,6 +282,21 @@ function updateQuantity(id, delta) {
     if (item.quantity <= 0) {
         removeFromCart(id);
     } else {
+        updateCartDisplay();
+    }
+}
+
+/**
+ * Set an item quantity directly from input. Removes if invalid or 0.
+ */
+function setQuantity(id, value) {
+    const item = cart.find(item => item.id === id);
+    if (!item) return;
+    const qty = parseInt(value, 10);
+    if (!qty || qty <= 0) {
+        removeFromCart(id);
+    } else {
+        item.quantity = Math.min(qty, 999);
         updateCartDisplay();
     }
 }
@@ -345,7 +362,10 @@ function updateCartDisplay() {
                             class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors text-sm font-bold">
                         &minus;
                     </button>
-                    <span class="w-7 text-center text-sm font-semibold text-gray-900">${item.quantity}</span>
+                    <input type="number" min="1" max="999" value="${item.quantity}"
+                           onchange="setQuantity(${item.id}, this.value)"
+                           onkeydown="if(event.key==='Enter'){this.blur()}"
+                           class="w-12 text-center text-sm font-semibold text-gray-900 border border-gray-300 rounded-md py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     <button onclick="updateQuantity(${item.id}, 1)"
                             class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-colors text-sm font-bold">
                         +

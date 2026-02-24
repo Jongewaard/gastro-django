@@ -31,6 +31,7 @@ def cash_register_view(request):
 
     movements = []
     running_total = Decimal('0.00')
+    totals = {'total_income': Decimal('0.00'), 'total_expense': Decimal('0.00')}
 
     if open_register:
         movements = CashMovement.objects.filter(
@@ -39,6 +40,13 @@ def cash_register_view(request):
 
         open_register.calculate_expected()
         running_total = open_register.expected_amount or open_register.opening_amount
+
+        # Calculate income/expense totals
+        for m in movements:
+            if m.amount > 0:
+                totals['total_income'] += m.amount
+            else:
+                totals['total_expense'] += abs(m.amount)
 
     # Recent closed registers
     recent_registers = CashRegister.objects.filter(
@@ -51,6 +59,8 @@ def cash_register_view(request):
         'movements': movements,
         'running_total': running_total,
         'recent_registers': recent_registers,
+        'totals': totals,
+        'active_page': 'cash_register',
     }
     return render(request, 'accounting/cash_register.html', context)
 
@@ -67,7 +77,7 @@ def cash_open(request):
     existing_open = CashRegister.objects.filter(tenant=tenant, status='open').exists()
     if existing_open:
         messages.error(request, 'Ya hay una caja abierta. Debe cerrarla antes de abrir una nueva.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     opening_amount = request.POST.get('opening_amount', '0')
     try:
@@ -76,7 +86,7 @@ def cash_open(request):
             raise ValueError()
     except (InvalidOperation, ValueError):
         messages.error(request, 'El monto de apertura debe ser un número válido.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     register = CashRegister.objects.create(
         tenant=tenant,
@@ -87,7 +97,7 @@ def cash_open(request):
     )
 
     messages.success(request, f'Caja abierta con ${opening_amount} de fondo.')
-    return redirect('cash_register_view')
+    return redirect('cash_register')
 
 
 @login_required
@@ -101,7 +111,7 @@ def cash_close(request):
     open_register = CashRegister.objects.filter(tenant=tenant, status='open').first()
     if not open_register:
         messages.error(request, 'No hay ninguna caja abierta para cerrar.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     closing_amount = request.POST.get('closing_amount', '0')
     notes = request.POST.get('notes', '').strip()
@@ -112,7 +122,7 @@ def cash_close(request):
             raise ValueError()
     except (InvalidOperation, ValueError):
         messages.error(request, 'El monto de cierre debe ser un número válido.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     # Use the model's close method which calculates expected and difference
     open_register.close(closing_amount=closing_amount, closed_by=request.user)
@@ -127,7 +137,7 @@ def cash_close(request):
     else:
         messages.success(request, 'Caja cerrada correctamente. Sin diferencias.')
 
-    return redirect('cash_register_view')
+    return redirect('cash_register')
 
 
 @login_required
@@ -141,7 +151,7 @@ def cash_movement_add(request):
     open_register = CashRegister.objects.filter(tenant=tenant, status='open').first()
     if not open_register:
         messages.error(request, 'No hay ninguna caja abierta. Abra una caja primero.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     movement_type = request.POST.get('movement_type', '')
     amount = request.POST.get('amount', '0')
@@ -151,7 +161,7 @@ def cash_movement_add(request):
     valid_types = [t[0] for t in CashMovement.MOVEMENT_TYPES]
     if movement_type not in valid_types:
         messages.error(request, 'Tipo de movimiento inválido.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     try:
         amount = Decimal(amount)
@@ -159,11 +169,11 @@ def cash_movement_add(request):
             raise ValueError()
     except (InvalidOperation, ValueError):
         messages.error(request, 'El monto debe ser un número distinto de cero.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     if not description:
         messages.error(request, 'La descripción es obligatoria.')
-        return redirect('cash_register_view')
+        return redirect('cash_register')
 
     # For withdrawals and expenses, ensure amount is negative
     if movement_type in ('withdrawal', 'expense') and amount > 0:
@@ -182,7 +192,7 @@ def cash_movement_add(request):
     )
 
     messages.success(request, f'Movimiento de caja registrado: {description}.')
-    return redirect('cash_register_view')
+    return redirect('cash_register')
 
 
 @login_required
@@ -227,6 +237,7 @@ def expense_list(request):
         'total_expenses': total_expenses,
         'date_from': date_from,
         'date_to': date_to,
+        'active_page': 'expenses',
     }
     return render(request, 'accounting/expense_list.html', context)
 
@@ -299,12 +310,14 @@ def expense_create(request):
                     )
 
                 messages.success(request, f'Gasto "{description}" registrado por ${amount}.')
-                return redirect('expense_list')
+                return redirect('expenses')
 
     categories = ExpenseCategory.objects.filter(tenant=tenant, is_active=True).order_by('name')
     context = {
         'expense_categories': categories,
+        'categories': categories,
         'editing': False,
+        'active_page': 'expenses',
     }
     return render(request, 'accounting/expense_form.html', context)
 
@@ -319,10 +332,17 @@ def reports_view(request):
     if not tenant:
         return redirect('dashboard')
 
-    # Calculate the current week (Monday to Sunday)
+    # Calculate the week (Monday to Sunday), support navigation
     today = timezone.now().date()
-    week_start = today - datetime.timedelta(days=today.weekday())  # Monday
+    week_start_str = request.GET.get('week_start', '')
+    try:
+        week_start = datetime.date.fromisoformat(week_start_str)
+    except (ValueError, TypeError):
+        week_start = today - datetime.timedelta(days=today.weekday())  # Monday
     week_end = week_start + datetime.timedelta(days=6)  # Sunday
+
+    prev_week_start = (week_start - datetime.timedelta(days=7)).isoformat()
+    next_week_start = (week_start + datetime.timedelta(days=7)).isoformat()
 
     # Daily totals for the week
     daily_totals = []
@@ -368,8 +388,13 @@ def reports_view(request):
 
         current_date += datetime.timedelta(days=1)
 
+    # Calculate averages and best day
+    days_with_sales = [d for d in daily_totals if d['total'] > 0]
+    daily_average = total_revenue / len(days_with_sales) if days_with_sales else Decimal('0.00')
+    best_day = max(daily_totals, key=lambda d: d['total']) if daily_totals else None
+
     # Top products for the week
-    top_products = SaleItem.objects.filter(
+    top_products_qs = SaleItem.objects.filter(
         sale__tenant=tenant,
         sale__created_at__date__gte=week_start,
         sale__created_at__date__lte=week_end,
@@ -382,15 +407,33 @@ def reports_view(request):
         total_revenue=Sum(models.F('quantity') * models.F('unit_price'))
     ).order_by('-total_quantity')[:10]
 
+    # Convert to list of dicts with template-friendly keys
+    top_products = [
+        {
+            'name': p['product__name'],
+            'quantity': p['total_quantity'],
+            'revenue': p['total_revenue'],
+        }
+        for p in top_products_qs
+    ]
+
     context = {
         'week_start': week_start,
         'week_end': week_end,
+        'prev_week_start': prev_week_start,
+        'next_week_start': next_week_start,
         'daily_totals': daily_totals,
+        'daily_sales': daily_totals,
+        'daily_average': daily_average,
+        'best_day': best_day,
         'total_revenue': total_revenue,
         'total_tickets': total_tickets,
         'total_cash': total_cash,
         'total_card': total_card,
+        'cash_total': total_cash,
+        'card_total': total_card,
         'top_products': top_products,
         'today': today,
+        'active_page': 'reports',
     }
     return render(request, 'accounting/reports.html', context)

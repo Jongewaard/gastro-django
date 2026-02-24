@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if supplier %}Editar Proveedor{% else %}Nuevo Proveedor{% endif %} - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}{% if supplier %}Editar Proveedor{% else %}Nuevo Proveedor{% endif %}{% endblock %}
+
+{% block content %}
+{% with active_page='suppliers' %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2">
+            <li>
+                <a href="{% url 'suppliers' %}" class="text-sm text-gray-500 hover:text-gray-700">Proveedores</a>
+            </li>
+            <li>
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </li>
+            <li>
+                <span class="text-sm text-gray-900 font-medium">
+                    {% if supplier %}Editar Proveedor{% else %}Nuevo Proveedor{% endif %}
+                </span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-xl font-bold text-gray-900">
+            {% if supplier %}Editar Proveedor{% else %}Nuevo Proveedor{% endif %}
+        </h2>
+        <p class="mt-0.5 text-sm text-gray-500">
+            {% if supplier %}Modifica los datos del proveedor "{{ supplier.name }}"{% else %}Completa los datos para registrar un nuevo proveedor{% endif %}
+        </p>
+    </div>
+
+    <!-- Form -->
+    <form method="post" action="" class="space-y-6"
+          onsubmit="return validateFormFields(this, [{name:'name', label:'Nombre del proveedor'}])">
+        {% csrf_token %}
+
+        <!-- Basic Info -->
+        <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-sm font-semibold text-gray-900">Datos del Proveedor</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-5">
+
+                <!-- Nombre -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre / Razon Social <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" required maxlength="150"
+                           value="{% if supplier %}{{ supplier.name }}{% endif %}"
+                           placeholder="Ej: Distribuidora Norte, La Lactea SRL"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Nombre de Contacto -->
+                <div>
+                    <label for="contact_name" class="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre de Contacto
+                    </label>
+                    <input type="text" id="contact_name" name="contact_name" maxlength="100"
+                           value="{% if supplier %}{{ supplier.contact_name }}{% endif %}"
+                           placeholder="Nombre de la persona de contacto"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Telefono + Email (2 cols) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <!-- Telefono -->
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                            Telefono
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                </svg>
+                            </div>
+                            <input type="tel" id="phone" name="phone" maxlength="30"
+                                   value="{% if supplier %}{{ supplier.phone }}{% endif %}"
+                                   placeholder="Ej: 011-4555-1234"
+                                   class="block w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <input type="email" id="email" name="email" maxlength="150"
+                                   value="{% if supplier %}{{ supplier.email }}{% endif %}"
+                                   placeholder="correo@proveedor.com"
+                                   class="block w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Direccion -->
+                <div>
+                    <label for="address" class="block text-sm font-medium text-gray-700 mb-1">
+                        Direccion
+                    </label>
+                    <textarea id="address" name="address" rows="2"
+                              placeholder="Direccion completa del proveedor"
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">{% if supplier %}{{ supplier.address }}{% endif %}</textarea>
+                </div>
+
+                <!-- Notas -->
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
+                        Notas
+                    </label>
+                    <textarea id="notes" name="notes" rows="3"
+                              placeholder="Observaciones adicionales, horarios de entrega, condiciones de pago..."
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">{% if supplier %}{{ supplier.notes }}{% endif %}</textarea>
+                    <p class="mt-1 text-xs text-gray-500">Informacion interna para tu equipo.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+            <a href="{% url 'suppliers' %}"
+               class="inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                {% if supplier %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Guardar Cambios
+                {% else %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Crear Proveedor
+                {% endif %}
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endwith %}
+{% endblock %}

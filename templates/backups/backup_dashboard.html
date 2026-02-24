@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+
+{% block title %}Copias de Seguridad - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}Backups{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-xl font-bold text-gray-900">Copias de Seguridad</h2>
+        <p class="mt-0.5 text-sm text-gray-500">Gestiona los backups de la base de datos del sistema.</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+        <!-- Total Backups -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Total Backups</p>
+                    <p class="text-lg font-bold text-gray-900">{{ total_backups }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Espacio Usado -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Espacio Usado</p>
+                    <p class="text-lg font-bold text-gray-900">{{ total_size_display }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ultimo Backup -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg {% if config.last_backup_status == 'success' %}bg-green-100{% elif config.last_backup_status == 'failed' %}bg-red-100{% else %}bg-gray-100{% endif %} flex items-center justify-center">
+                    {% if config.last_backup_status == 'success' %}
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    {% elif config.last_backup_status == 'failed' %}
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    {% else %}
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    {% endif %}
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Ultimo Backup</p>
+                    {% if config.last_backup_at %}
+                        <p class="text-sm font-bold text-gray-900">{{ config.last_backup_at|date:"d/m/Y H:i" }}</p>
+                    {% else %}
+                        <p class="text-sm font-medium text-gray-400">Nunca</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Programacion -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg {% if config.is_enabled %}bg-green-100{% else %}bg-gray-100{% endif %} flex items-center justify-center">
+                    <svg class="w-5 h-5 {% if config.is_enabled %}text-green-600{% else %}text-gray-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 font-medium">Programacion</p>
+                    {% if config.is_enabled %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ config.get_frequency_display }}</span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactivo</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Configuration Panel -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900">Configuracion de Backups Automaticos</h3>
+                <p class="mt-0.5 text-xs text-gray-500">Modifica la frecuencia y retencion de las copias de seguridad.</p>
+            </div>
+            {% if config.is_enabled %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                    <span class="w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
+                    Activo - {{ config.get_frequency_display }} a las {{ config.backup_time|time:"H:i" }}
+                </span>
+            {% else %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                    <span class="w-2 h-2 rounded-full bg-gray-400 mr-1.5"></span>
+                    Desactivado
+                </span>
+            {% endif %}
+        </div>
+
+        <form method="post" action="{% url 'backup_save_config' %}" class="p-4 sm:p-6">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+
+                <!-- Activar -->
+                <div class="sm:col-span-2 lg:col-span-3">
+                    <label class="flex items-center gap-3 cursor-pointer" onclick="toggleBackupSwitch()">
+                        <div class="relative" style="width:44px;height:24px;">
+                            <input type="checkbox" name="is_enabled" {% if config.is_enabled %}checked{% endif %}
+                                   class="hidden" id="toggle-enabled">
+                            <div id="toggle-track"
+                                 class="w-11 h-6 rounded-full transition-colors duration-200 {% if config.is_enabled %}bg-blue-600{% else %}bg-gray-300{% endif %}"
+                                 style="cursor:pointer;">
+                                <div id="toggle-knob"
+                                     class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                                     style="{% if config.is_enabled %}transform:translateX(20px){% else %}transform:translateX(2px){% endif %}"></div>
+                            </div>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900">Activar backups automaticos</span>
+                    </label>
+                </div>
+
+                <!-- Frecuencia -->
+                <div>
+                    <label for="frequency" class="block text-sm font-medium text-gray-700 mb-1">Frecuencia</label>
+                    <select name="frequency" id="frequency"
+                            class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="every_6h" {% if config.frequency == 'every_6h' %}selected{% endif %}>Cada 6 horas</option>
+                        <option value="every_12h" {% if config.frequency == 'every_12h' %}selected{% endif %}>Cada 12 horas</option>
+                        <option value="daily" {% if config.frequency == 'daily' %}selected{% endif %}>Diario</option>
+                        <option value="weekly" {% if config.frequency == 'weekly' %}selected{% endif %}>Semanal</option>
+                    </select>
+                </div>
+
+                <!-- Hora -->
+                <div>
+                    <label for="backup_time" class="block text-sm font-medium text-gray-700 mb-1">Hora del backup</label>
+                    <input type="time" name="backup_time" id="backup_time"
+                           value="{{ config.backup_time|time:'H:i' }}"
+                           class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- Retencion -->
+                <div>
+                    <label for="retention_days" class="block text-sm font-medium text-gray-700 mb-1">Dias de retencion</label>
+                    <input type="number" name="retention_days" id="retention_days" min="1" max="365"
+                           value="{{ config.retention_days }}"
+                           class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                    <p class="mt-1 text-xs text-gray-400">Los backups mas antiguos se eliminan automaticamente</p>
+                </div>
+
+                <!-- Max backups -->
+                <div>
+                    <label for="max_backups" class="block text-sm font-medium text-gray-700 mb-1">Maximo de backups</label>
+                    <input type="number" name="max_backups" id="max_backups" min="1" max="500"
+                           value="{{ config.max_backups }}"
+                           class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                    <p class="mt-1 text-xs text-gray-400">Cantidad maxima de archivos a conservar</p>
+                </div>
+
+                <!-- Comprimir -->
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 cursor-pointer pb-1">
+                        <input type="checkbox" name="compress" {% if config.compress %}checked{% endif %}
+                               class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="text-sm font-medium text-gray-700">Comprimir backups (.gz)</span>
+                    </label>
+                </div>
+
+                <!-- Carpeta personalizada -->
+                <div class="sm:col-span-2 lg:col-span-3">
+                    <label for="backup_dir" class="block text-sm font-medium text-gray-700 mb-1">Carpeta de backups (opcional)</label>
+                    <input type="text" name="backup_dir" id="backup_dir"
+                           value="{{ config.backup_dir }}"
+                           placeholder="{{ backup_dir }}"
+                           class="w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+                    <p class="mt-1 text-xs text-gray-400">Dejar vacio para usar la carpeta por defecto: {{ backup_dir }}</p>
+                </div>
+
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Backup History -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">Historial de Backups</h3>
+                    <p class="mt-0.5 text-xs text-gray-500">Ultimas 50 copias de seguridad realizadas.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <form method="post" action="{% url 'backup_cleanup' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Limpiar Antiguos
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'backup_create_now' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Crear Backup Ahora
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if records %}
+            <!-- Desktop Table -->
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Archivo</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tamano</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for record in records %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ record.created_at|date:"d/m/Y H:i" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm font-mono text-gray-600">{{ record.filename }}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600">
+                                    {{ record.file_size_display }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    {% if record.status == 'success' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Exitoso</span>
+                                    {% elif record.status == 'failed' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" title="{{ record.error_message }}">Fallido</span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">En progreso</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    {% if record.trigger == 'manual' %}
+                                        <span class="text-xs text-gray-500">Manual</span>
+                                    {% else %}
+                                        <span class="text-xs text-blue-600">Programado</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <div class="flex items-center justify-end space-x-2">
+                                        {% if record.status == 'success' %}
+                                            <a href="{% url 'backup_download' record.id %}"
+                                               class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                                Descargar
+                                            </a>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'backup_delete' record.id %}" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    onclick="return confirm('¿Eliminar este backup?')"
+                                                    class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition-colors">
+                                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="sm:hidden divide-y divide-gray-200">
+                {% for record in records %}
+                    <div class="p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-900">{{ record.created_at|date:"d/m/Y H:i" }}</span>
+                            {% if record.status == 'success' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Exitoso</span>
+                            {% elif record.status == 'failed' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Fallido</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">En progreso</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span class="font-mono">{{ record.filename|truncatechars:30 }}</span>
+                            <span>{{ record.file_size_display }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs {% if record.trigger == 'scheduled' %}text-blue-600{% else %}text-gray-500{% endif %}">
+                                {{ record.get_trigger_display }}
+                            </span>
+                            <div class="flex items-center space-x-2">
+                                {% if record.status == 'success' %}
+                                    <a href="{% url 'backup_download' record.id %}"
+                                       class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                                        Descargar
+                                    </a>
+                                {% endif %}
+                                <form method="post" action="{% url 'backup_delete' record.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                            onclick="return confirm('¿Eliminar este backup?')"
+                                            class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition-colors">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                </svg>
+                <h3 class="mt-3 text-sm font-semibold text-gray-900">Sin backups</h3>
+                <p class="mt-1 text-xs text-gray-500">Crea tu primera copia de seguridad.</p>
+                <div class="mt-4">
+                    <form method="post" action="{% url 'backup_create_now' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Crear Primer Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+function toggleBackupSwitch() {
+    var cb = document.getElementById('toggle-enabled');
+    var track = document.getElementById('toggle-track');
+    var knob = document.getElementById('toggle-knob');
+    cb.checked = !cb.checked;
+    if (cb.checked) {
+        track.classList.remove('bg-gray-300');
+        track.classList.add('bg-blue-600');
+        knob.style.transform = 'translateX(20px)';
+    } else {
+        track.classList.remove('bg-blue-600');
+        track.classList.add('bg-gray-300');
+        knob.style.transform = 'translateX(2px)';
+    }
+}
+</script>
+{% endblock %}

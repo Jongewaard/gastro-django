@@ -101,6 +101,11 @@ def sale_create(request):
             )
             subtotal += sale_item.get_total_price()
 
+        # Verify at least one item was created
+        if sale.items.count() == 0:
+            sale.delete()
+            return JsonResponse({'success': False, 'error': 'Ningún producto válido en la venta.'}, status=400)
+
         # Calculate totals
         sale.subtotal = subtotal
         tax_rate = tenant.tax_rate or Decimal('0.00')
@@ -131,8 +136,8 @@ def sale_create(request):
             'total_amount': str(sale.total_amount),
         })
 
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Error interno al crear la venta.'}, status=500)
 
 
 @login_required

@@ -4,6 +4,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db.models import Sum, Count, F
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 from datetime import timedelta
 
 from sales.models import Sale, PaymentMethod
@@ -25,7 +27,9 @@ def simple_login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            next_url = request.GET.get('next', 'dashboard')
+            next_url = request.POST.get('next', request.GET.get('next', ''))
+            if not next_url or not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                next_url = 'dashboard'
             return redirect(next_url)
         else:
             messages.error(request, 'Usuario o contraseña incorrectos')
@@ -33,8 +37,9 @@ def simple_login_view(request):
     return render(request, 'login.html')
 
 
+@require_POST
 def logout_view(request):
-    """Logout and redirect to login."""
+    """Logout and redirect to login. POST only for CSRF protection."""
     logout(request)
     return redirect('login')
 
@@ -97,17 +102,18 @@ def dashboard_view(request):
     stats = {
         'today_sales': today_sales['total'] or 0,
         'today_tickets': today_sales['count'] or 0,
-        'low_stock_count': low_stock_count,
-        'employees_today_count': employees_today.count(),
+        'low_stock': low_stock_count,
+        'employees_today': employees_today.count(),
     }
 
     context = {
         'stats': stats,
         'recent_sales': recent_sales,
         'low_stock_ingredients': low_stock_ingredients[:5],
-        'employees_today': employees_today,
+        'employees_today_list': employees_today,
         'open_register': open_register,
         'register_balance': register_balance,
+        'active_page': 'dashboard',
     }
 
     return render(request, 'dashboard.html', context)
@@ -143,61 +149,10 @@ def pos_view(request):
         'categories': categories,
         'products': products,
         'payment_methods': payment_methods,
+        'active_page': 'pos',
     }
 
     return render(request, 'pos.html', context)
-
-
-@login_required
-def products_view(request):
-    """Vista de gestion de productos."""
-    tenant = request.user.tenant
-    if not tenant:
-        return redirect('dashboard')
-
-    products = Product.objects.filter(
-        tenant=tenant
-    ).select_related('category').order_by('category', 'sort_order', 'name')
-
-    context = {
-        'products': products,
-    }
-
-    return render(request, 'products.html', context)
-
-
-@login_required
-def reports_view(request):
-    """Vista de reportes basicos."""
-    tenant = request.user.tenant
-    if not tenant:
-        return redirect('dashboard')
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=6)
-
-    daily_sales = []
-    current_date = start_date
-    while current_date <= end_date:
-        sales = Sale.objects.filter(
-            tenant=tenant,
-            created_at__date=current_date
-        ).aggregate(
-            total=Sum('total_amount'),
-            count=Count('id')
-        )
-        daily_sales.append({
-            'date': current_date,
-            'total': sales['total'] or 0,
-            'count': sales['count'] or 0,
-        })
-        current_date += timedelta(days=1)
-
-    context = {
-        'daily_sales': daily_sales,
-    }
-
-    return render(request, 'reports.html', context)
 
 
 @login_required
@@ -226,6 +181,7 @@ def orders_view(request):
         'ready_orders': ready_orders,
         'delivered_orders': delivered_orders,
         'today': today,
+        'active_page': 'orders',
     }
 
     return render(request, 'orders.html', context)

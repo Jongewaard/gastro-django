@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if ingredient %}Editar Ingrediente{% else %}Nuevo Ingrediente{% endif %} - {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}{% endblock %}
+{% block mobile_title %}{% if ingredient %}Editar Ingrediente{% else %}Nuevo Ingrediente{% endif %}{% endblock %}
+
+{% block content %}
+{% with active_page='inventory' %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2">
+            <li>
+                <a href="{% url 'inventory' %}" class="text-sm text-gray-500 hover:text-gray-700">Ingredientes</a>
+            </li>
+            <li>
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </li>
+            <li>
+                <span class="text-sm text-gray-900 font-medium">
+                    {% if ingredient %}Editar Ingrediente{% else %}Nuevo Ingrediente{% endif %}
+                </span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-xl font-bold text-gray-900">
+            {% if ingredient %}Editar Ingrediente{% else %}Nuevo Ingrediente{% endif %}
+        </h2>
+        <p class="mt-0.5 text-sm text-gray-500">
+            {% if ingredient %}Modifica los datos del ingrediente "{{ ingredient.name }}"{% else %}Completa los datos para registrar un nuevo ingrediente{% endif %}
+        </p>
+    </div>
+
+    <!-- Form -->
+    <form method="post" action="" class="space-y-6"
+          onsubmit="return validateFormFields(this, [{name:'name', label:'Nombre del ingrediente'}])">
+        {% csrf_token %}
+
+        <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-sm font-semibold text-gray-900">Datos del Ingrediente</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-5">
+
+                <!-- Nombre -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" required maxlength="100"
+                           value="{% if ingredient %}{{ ingredient.name }}{% endif %}"
+                           placeholder="Ej: Harina 000, Mozzarella, Tomate triturado"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Unidad + Stock Actual (2 cols) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <!-- Unidad de Medida -->
+                    <div>
+                        <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">
+                            Unidad de Medida <span class="text-red-500">*</span>
+                        </label>
+                        <select id="unit" name="unit" required
+                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border bg-white">
+                            <option value="">Seleccionar unidad...</option>
+                            <option value="kg" {% if ingredient and ingredient.unit == 'kg' %}selected{% endif %}>Kilogramos (kg)</option>
+                            <option value="g" {% if ingredient and ingredient.unit == 'g' %}selected{% endif %}>Gramos (g)</option>
+                            <option value="l" {% if ingredient and ingredient.unit == 'l' %}selected{% endif %}>Litros (l)</option>
+                            <option value="ml" {% if ingredient and ingredient.unit == 'ml' %}selected{% endif %}>Mililitros (ml)</option>
+                            <option value="u" {% if ingredient and ingredient.unit == 'u' %}selected{% endif %}>Unidades (u)</option>
+                            <option value="doc" {% if ingredient and ingredient.unit == 'doc' %}selected{% endif %}>Docenas (doc)</option>
+                            <option value="paq" {% if ingredient and ingredient.unit == 'paq' %}selected{% endif %}>Paquetes (paq)</option>
+                        </select>
+                    </div>
+
+                    <!-- Stock Actual -->
+                    <div>
+                        <label for="current_stock" class="block text-sm font-medium text-gray-700 mb-1">
+                            Stock Actual <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" id="current_stock" name="current_stock" required
+                               step="0.01" min="0"
+                               value="{% if ingredient %}{{ ingredient.current_stock }}{% endif %}"
+                               placeholder="0.00"
+                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+                </div>
+
+                <!-- Stock Minimo + Costo por Unidad (2 cols) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <!-- Stock Minimo -->
+                    <div>
+                        <label for="min_stock" class="block text-sm font-medium text-gray-700 mb-1">
+                            Stock Minimo <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" id="min_stock" name="min_stock" required
+                               step="0.01" min="0"
+                               value="{% if ingredient %}{{ ingredient.min_stock }}{% endif %}"
+                               placeholder="0.00"
+                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        <p class="mt-1 text-xs text-gray-500">Se mostrara una alerta cuando el stock este por debajo de este valor.</p>
+                    </div>
+
+                    <!-- Costo por Unidad -->
+                    <div>
+                        <label for="cost_per_unit" class="block text-sm font-medium text-gray-700 mb-1">
+                            Costo por Unidad <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 text-sm">$</span>
+                            </div>
+                            <input type="number" id="cost_per_unit" name="cost_per_unit" required
+                                   step="0.01" min="0"
+                                   value="{% if ingredient %}{{ ingredient.cost_per_unit }}{% endif %}"
+                                   placeholder="0.00"
+                                   class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Proveedor -->
+                <div>
+                    <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">
+                        Proveedor
+                    </label>
+                    <select id="supplier" name="supplier"
+                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border bg-white">
+                        <option value="">Sin proveedor asignado</option>
+                        {% for sup in suppliers %}
+                            <option value="{{ sup.id }}"
+                                {% if ingredient and ingredient.supplier_id == sup.id %}selected{% endif %}>
+                                {{ sup.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Opcional. Asigna un proveedor para facilitar la gestion de compras.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+            <a href="{% url 'inventory' %}"
+               class="inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                {% if ingredient %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Guardar Cambios
+                {% else %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Crear Ingrediente
+                {% endif %}
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endwith %}
+{% endblock %}
