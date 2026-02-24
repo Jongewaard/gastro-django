@@ -230,6 +230,33 @@ print('OK')
 }
 
 # ============================================================
+# 6b. Datos de ejemplo (opcional)
+# ============================================================
+Write-Step "Datos de ejemplo..."
+
+$hasProducts = & $venvPython -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','pizzeria_saas.settings');django.setup();from products.models import Product;print('yes' if Product.objects.exists() else 'no')" 2>&1
+
+if ($hasProducts.Trim() -eq "yes") {
+    Write-Skip "Ya hay productos cargados"
+} else {
+    Write-Host ""
+    $resp = Read-Host "   Queres cargar datos de ejemplo para probar? (S/N)"
+    if ($resp -match "^[sS]") {
+        $demoOut = & $venvPython manage.py load_demo_data 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "Error al cargar datos de ejemplo"
+            $demoOut | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+        } else {
+            Write-Ok "Datos de ejemplo cargados (productos, ingredientes, recetas, empleados)"
+            Write-Host "   Podes editarlos o borrarlos cuando quieras." -ForegroundColor Gray
+        }
+    } else {
+        Write-Skip "Sin datos de ejemplo. Cargalos desde el sistema o ejecuta:"
+        Write-Host "   venv\Scripts\python manage.py load_demo_data" -ForegroundColor Gray
+    }
+}
+
+# ============================================================
 # 7. Detener servidor previo (si esta corriendo)
 # ============================================================
 Write-Step "Verificando servidor previo..."
