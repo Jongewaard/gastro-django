@@ -7,9 +7,17 @@
 <div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
 
     <!-- Header -->
-    <div class="mb-6">
-        <h2 class="text-xl font-bold text-gray-900">Copias de Seguridad</h2>
-        <p class="mt-0.5 text-sm text-gray-500">Gestiona los backups de la base de datos del sistema.</p>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">Copias de Seguridad</h2>
+            <p class="mt-0.5 text-sm text-gray-500">Gestiona los backups de la base de datos del sistema.</p>
+        </div>
+        <button onclick="restartServer()"
+                class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                id="btn-restart">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Reiniciar Servidor
+        </button>
     </div>
 
     <!-- Stats Cards -->
@@ -373,6 +381,40 @@ function toggleBackupSwitch() {
         track.classList.add('bg-gray-300');
         knob.style.transform = 'translateX(2px)';
     }
+}
+
+function restartServer() {
+    if (!confirm('¿Reiniciar el servidor? La pagina se recargara en unos segundos.')) return;
+
+    var btn = document.getElementById('btn-restart');
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Reiniciando...';
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    fetch('{% url "server_restart" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken}
+    }).catch(function() {});
+
+    // Wait for server to come back up
+    setTimeout(function() {
+        var attempts = 0;
+        var check = setInterval(function() {
+            attempts++;
+            fetch('/login/', {method: 'HEAD'}).then(function(r) {
+                if (r.ok) {
+                    clearInterval(check);
+                    window.location.reload();
+                }
+            }).catch(function() {});
+            if (attempts > 20) {
+                clearInterval(check);
+                btn.innerHTML = 'Reiniciar Servidor';
+                btn.disabled = false;
+                showToast('El servidor tardo demasiado en reiniciar. Recarga manualmente.', 'warning');
+            }
+        }, 2000);
+    }, 3000);
 }
 </script>
 {% endblock %}

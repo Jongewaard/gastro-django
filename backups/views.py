@@ -1,10 +1,14 @@
+import os
+import signal
+import sys
 from datetime import time as dt_time
 from functools import wraps
 from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -178,3 +182,24 @@ def backup_cleanup(request):
     else:
         messages.info(request, 'No hay backups antiguos para limpiar.')
     return redirect('backup_dashboard')
+
+
+@login_required
+@backup_role_required
+@require_POST
+def server_restart(request):
+    """
+    Restart the server. Works when running under run_server.pyw wrapper:
+    the wrapper detects the exit and restarts the process automatically.
+    Returns a JSON response before killing the process.
+    """
+    # Send response first, then schedule the exit
+    import threading
+
+    def delayed_exit():
+        import time
+        time.sleep(1)
+        os._exit(0)  # Hard exit; run_server.pyw loop will restart us
+
+    threading.Thread(target=delayed_exit, daemon=True).start()
+    return JsonResponse({'status': 'restarting', 'message': 'Reiniciando servidor...'})
