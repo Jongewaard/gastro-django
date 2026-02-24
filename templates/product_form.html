@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if product %}Editar Producto{% else %}Nuevo Producto{% endif %} - {{ user.tenant.name }}{% endblock %}
+
+{% block content %}
+{% with active_page='products' %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg border-l-4
+                {% if message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
+                {% elif message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
+                {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
+                <div class="flex justify-between items-center">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-lg leading-none">&times;</button>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-2">
+                <li>
+                    <a href="{% url 'products' %}" class="text-sm text-gray-500 hover:text-gray-700">Productos</a>
+                </li>
+                <li>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </li>
+                <li>
+                    <span class="text-sm text-gray-900 font-medium">
+                        {% if product %}Editar Producto{% else %}Nuevo Producto{% endif %}
+                    </span>
+                </li>
+            </ol>
+        </nav>
+        <h2 class="text-2xl font-bold text-gray-900">
+            {% if product %}Editar Producto{% else %}Nuevo Producto{% endif %}
+        </h2>
+        <p class="mt-1 text-sm text-gray-600">
+            {% if product %}Modifica los datos del producto "{{ product.name }}"{% else %}Completa los datos para crear un nuevo producto{% endif %}
+        </p>
+    </div>
+
+    <!-- Form -->
+    <form method="post" action="" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-base font-semibold text-gray-900">Informacion del Producto</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-6">
+
+                <!-- Categoria -->
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
+                        Categoria <span class="text-red-500">*</span>
+                    </label>
+                    <select id="category" name="category" required
+                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border bg-white">
+                        <option value="">Seleccionar categoria...</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}"
+                                {% if product and product.category_id == cat.id %}selected{% endif %}>
+                                {{ cat.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Nombre -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" required maxlength="100"
+                           value="{% if product %}{{ product.name }}{% endif %}"
+                           placeholder="Ej: Pizza Muzzarella Grande"
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Descripcion -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                        Descripcion
+                    </label>
+                    <textarea id="description" name="description" rows="3"
+                              placeholder="Descripcion opcional del producto..."
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">{% if product %}{{ product.description }}{% endif %}</textarea>
+                </div>
+
+                <!-- Precio -->
+                <div>
+                    <label for="base_price" class="block text-sm font-medium text-gray-700 mb-1">
+                        Precio <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 text-sm">$</span>
+                        </div>
+                        <input type="number" id="base_price" name="base_price" required
+                               step="0.01" min="0.01"
+                               value="{% if product %}{{ product.base_price }}{% endif %}"
+                               placeholder="0.00"
+                               class="block w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Options -->
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-base font-semibold text-gray-900">Opciones</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-4">
+
+                <!-- has_variants -->
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input type="checkbox" id="has_variants" name="has_variants"
+                               {% if product and product.has_variants %}checked{% endif %}
+                               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    </div>
+                    <div class="ml-3">
+                        <label for="has_variants" class="text-sm font-medium text-gray-700">Tiene variantes</label>
+                        <p class="text-xs text-gray-500">El producto tiene variaciones como tamanios, sabores o extras.</p>
+                    </div>
+                </div>
+
+                <!-- requires_preparation -->
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input type="checkbox" id="requires_preparation" name="requires_preparation"
+                               {% if product and product.requires_preparation %}checked{% endif %}
+                               {% if not product %}checked{% endif %}
+                               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    </div>
+                    <div class="ml-3">
+                        <label for="requires_preparation" class="text-sm font-medium text-gray-700">Requiere preparacion</label>
+                        <p class="text-xs text-gray-500">El producto necesita ser preparado en cocina antes de ser entregado.</p>
+                    </div>
+                </div>
+
+                <!-- is_active -->
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input type="checkbox" id="is_active" name="is_active"
+                               {% if product and product.is_active %}checked{% endif %}
+                               {% if not product %}checked{% endif %}
+                               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    </div>
+                    <div class="ml-3">
+                        <label for="is_active" class="text-sm font-medium text-gray-700">Activo</label>
+                        <p class="text-xs text-gray-500">El producto esta disponible para la venta.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+            <a href="{% url 'products' %}"
+               class="inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                {% if product %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Guardar Cambios
+                {% else %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Crear
+                {% endif %}
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endwith %}
+{% endblock %}

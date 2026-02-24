@@ -3,233 +3,527 @@
 {% block title %}Punto de Venta - {{ user.tenant.name }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">Punto de Venta</h2>
-        <p class="text-gray-600">Registrar nueva venta</p>
-    </div>
+<!-- Mobile cart toggle button (fixed bottom) -->
+<button id="mobile-cart-toggle"
+        onclick="toggleMobileCart()"
+        class="lg:hidden fixed bottom-4 right-4 z-40 bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl hover:bg-blue-700 transition-colors">
+    <span class="text-lg font-bold" id="mobile-cart-badge">0</span>
+    <svg class="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+    </svg>
+</button>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Productos -->
-        <div class="lg:col-span-2">
-            <div class="bg-white shadow rounded-lg">
-                <div class="px-4 py-3 border-b">
-                    <h3 class="text-lg font-medium text-gray-900">Productos</h3>
-                </div>
-                <div class="p-4">
-                    {% if categories %}
-                        <!-- Categorías -->
-                        <div class="mb-4">
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="showCategory('all')" class="category-btn px-4 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200">
-                                    Todos
-                                </button>
-                                {% for category in categories %}
-                                    <button onclick="showCategory('cat-{{ category.id }}')" class="category-btn px-4 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                        {{ category.name }}
-                                    </button>
-                                {% endfor %}
-                            </div>
-                        </div>
+<!-- Mobile cart overlay -->
+<div id="mobile-cart-overlay"
+     class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 hidden"
+     onclick="toggleMobileCart()"></div>
 
-                        <!-- Productos por categoría -->
-                        {% for category in categories %}
-                            <div class="category-products cat-{{ category.id }} mb-6">
-                                <h4 class="text-md font-medium text-gray-700 mb-3">{{ category.name }}</h4>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                    {% for product in category.product_set.all %}
-                                        {% if product.is_active %}
-                                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.base_price }})" 
-                                                    class="product-btn p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-colors">
-                                                <div class="font-medium text-gray-900">{{ product.name }}</div>
-                                                <div class="text-sm text-gray-600">${{ product.base_price }}</div>
-                                            </button>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center py-8">
-                            <div class="text-4xl mb-4">📦</div>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin productos configurados</h3>
-                            <p class="text-gray-600 mb-4">Primero configurá tu menú en el admin</p>
-                            <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-                                Agregar Productos
-                            </a>
-                        </div>
-                    {% endif %}
-                </div>
+<div class="flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden">
+
+    <!-- LEFT SIDE: Products (2/3 on desktop, full on mobile) -->
+    <div class="flex-1 lg:w-2/3 overflow-y-auto p-4 lg:p-6">
+
+        <!-- Search bar -->
+        <div class="mb-4">
+            <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input type="text"
+                       id="product-search"
+                       placeholder="Buscar producto..."
+                       oninput="filterProducts()"
+                       class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm">
             </div>
         </div>
 
-        <!-- Carrito -->
-        <div class="lg:col-span-1">
-            <div class="bg-white shadow rounded-lg sticky top-6">
-                <div class="px-4 py-3 border-b">
-                    <h3 class="text-lg font-medium text-gray-900">Carrito</h3>
+        <!-- Category filter buttons -->
+        <div class="mb-5 overflow-x-auto pb-2 -mx-1">
+            <div class="flex gap-2 px-1 min-w-max">
+                <button onclick="filterByCategory('all', this)"
+                        class="category-btn px-4 py-2 rounded-full text-sm font-medium bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors whitespace-nowrap">
+                    Todos
+                </button>
+                {% for category in categories %}
+                <button onclick="filterByCategory('{{ category.id }}', this)"
+                        class="category-btn px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors whitespace-nowrap">
+                    {% if category.icon %}{{ category.icon }} {% endif %}{{ category.name }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Product grid -->
+        {% if categories %}
+        <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {% for product in products %}
+            {% if product.is_active %}
+            <button onclick="addToCart({{ product.id }}, '{{ product.name|escapejs }}', {{ product.base_price }})"
+                    class="product-card group relative p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-md text-left transition-all duration-150 active:scale-95"
+                    data-category="{{ product.category.id }}"
+                    data-name="{{ product.name|lower }}">
+                <div class="font-semibold text-gray-900 text-sm leading-tight mb-1 group-hover:text-blue-600 transition-colors">
+                    {{ product.name }}
                 </div>
-                <div class="p-4">
-                    <div id="cart-items" class="space-y-3 mb-4">
-                        <div id="empty-cart" class="text-center py-6 text-gray-500">
-                            Agregá productos al carrito
+                <div class="text-blue-600 font-bold text-lg">${{ product.base_price }}</div>
+                {% if product.category.icon %}
+                <div class="absolute top-2 right-2 text-xs opacity-50">{{ product.category.icon }}</div>
+                {% endif %}
+                <!-- Click feedback overlay -->
+                <div class="added-feedback absolute inset-0 bg-green-500 bg-opacity-20 rounded-xl flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16">
+            <svg class="mx-auto w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin productos configurados</h3>
+            <p class="text-gray-600 mb-4">Primero configura tu menu en el admin</p>
+            <a href="/admin/products/product/add/"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                Agregar Productos
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT SIDE: Cart / Ticket (1/3 on desktop, slide-up panel on mobile) -->
+    <div id="cart-panel"
+         class="fixed bottom-0 left-0 right-0 lg:relative lg:bottom-auto lg:left-auto lg:right-auto
+                lg:w-1/3 lg:max-w-md bg-white border-t lg:border-t-0 lg:border-l border-gray-200
+                shadow-2xl lg:shadow-none z-50
+                transform translate-y-full lg:translate-y-0 transition-transform duration-300 ease-in-out
+                flex flex-col max-h-[85vh] lg:max-h-none lg:h-full">
+
+        <!-- Ticket header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b bg-gray-50">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-900">Ticket</h3>
+                <span id="cart-count-label" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full hidden">0 items</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="clearCart()"
+                        id="clear-cart-btn"
+                        class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors hidden">
+                    Vaciar
+                </button>
+                <!-- Mobile close button -->
+                <button onclick="toggleMobileCart()" class="lg:hidden p-1 text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cart items list (scrollable) -->
+        <div id="cart-items" class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <div id="empty-cart" class="text-center py-10 text-gray-400">
+                <svg class="mx-auto w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                </svg>
+                <p class="text-sm">Agrega productos al ticket</p>
+            </div>
+        </div>
+
+        <!-- Cart footer: totals + checkout -->
+        <div class="border-t bg-white px-5 py-4 space-y-3">
+            <!-- Subtotal -->
+            <div class="flex justify-between text-sm text-gray-600">
+                <span>Subtotal</span>
+                <span id="cart-subtotal">$0.00</span>
+            </div>
+
+            <!-- Total -->
+            <div class="flex justify-between text-xl font-bold text-gray-900">
+                <span>Total</span>
+                <span id="cart-total">$0.00</span>
+            </div>
+
+            <!-- Customer name -->
+            <div>
+                <input type="text"
+                       id="customer_name"
+                       placeholder="Nombre del cliente (opcional)"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <!-- Payment method -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1.5">Metodo de pago</label>
+                <div class="flex flex-wrap gap-2">
+                    {% for pm in payment_methods %}
+                    <label class="flex-1 min-w-[80px]">
+                        <input type="radio" name="payment_method" value="{{ pm.id }}" class="sr-only peer" {% if forloop.first %}checked{% endif %}>
+                        <div class="text-center px-3 py-2 border border-gray-300 rounded-lg text-sm cursor-pointer
+                                    peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:font-medium
+                                    hover:bg-gray-50 transition-colors">
+                            {{ pm.name }}
                         </div>
-                    </div>
-                    
-                    <div class="border-t pt-4">
-                        <div class="flex justify-between text-lg font-medium text-gray-900 mb-4">
-                            <span>Total:</span>
-                            <span id="cart-total">$0</span>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="customer_name" class="block text-sm font-medium text-gray-700 mb-1">Cliente (opcional)</label>
-                            <input type="text" id="customer_name" placeholder="Nombre del cliente" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        
-                        <button onclick="checkout()" id="checkout-btn" disabled
-                                class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
-                            Procesar Venta
-                        </button>
-                    </div>
+                    </label>
+                    {% endfor %}
                 </div>
             </div>
+
+            <!-- Checkout button -->
+            <button onclick="checkout()"
+                    id="checkout-btn"
+                    disabled
+                    class="w-full py-3.5 rounded-xl text-white font-bold text-lg
+                           bg-green-600 hover:bg-green-700 active:bg-green-800
+                           disabled:bg-gray-300 disabled:cursor-not-allowed
+                           transition-colors shadow-lg disabled:shadow-none">
+                <span id="checkout-btn-text">Cobrar $0.00</span>
+            </button>
         </div>
     </div>
 </div>
 
+<style>
+    /* Hide scrollbar for category row but keep it scrollable */
+    .overflow-x-auto::-webkit-scrollbar { display: none; }
+    .overflow-x-auto { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Product card click feedback animation */
+    .product-card.just-added .added-feedback {
+        opacity: 1;
+    }
+
+    /* Mobile cart open state */
+    #cart-panel.cart-open {
+        transform: translateY(0) !important;
+    }
+
+    /* Smooth cart item transitions */
+    .cart-item {
+        animation: slideIn 0.15s ease-out;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+</style>
+
 <script>
+// ============================================================
+// POS - Cart State Management
+// ============================================================
+
 let cart = [];
-let cartTotal = 0;
 
-function showCategory(categoryClass) {
-    // Ocultar todas las categorías
-    document.querySelectorAll('.category-products').forEach(el => {
-        el.style.display = 'none';
-    });
-    
-    // Remover clase activa de botones
-    document.querySelectorAll('.category-btn').forEach(btn => {
-        btn.className = btn.className.replace('bg-blue-100 text-blue-800', 'bg-gray-100 text-gray-700');
-    });
-    
-    // Mostrar categoría seleccionada
-    if (categoryClass === 'all') {
-        document.querySelectorAll('.category-products').forEach(el => {
-            el.style.display = 'block';
-        });
-        event.target.className = event.target.className.replace('bg-gray-100 text-gray-700', 'bg-blue-100 text-blue-800');
-    } else {
-        const categoryEl = document.querySelector('.' + categoryClass);
-        if (categoryEl) {
-            categoryEl.style.display = 'block';
+/**
+ * Get CSRF token from cookies for fetch requests.
+ */
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
         }
-        event.target.className = event.target.className.replace('bg-gray-100 text-gray-700', 'bg-blue-100 text-blue-800');
     }
+    return cookieValue;
 }
 
-function addToCart(productId, productName, productPrice) {
-    const existingItem = cart.find(item => item.id === productId);
-    
-    if (existingItem) {
-        existingItem.quantity += 1;
+/**
+ * Add a product to cart or increment its quantity if already present.
+ */
+function addToCart(id, name, price) {
+    const existing = cart.find(item => item.id === id);
+    if (existing) {
+        existing.quantity += 1;
     } else {
-        cart.push({
-            id: productId,
-            name: productName,
-            price: productPrice,
-            quantity: 1
-        });
+        cart.push({ id: id, name: name, price: parseFloat(price), quantity: 1 });
     }
-    
+    updateCartDisplay();
+
+    // Visual feedback on the clicked product card
+    const btn = event.currentTarget;
+    btn.classList.add('just-added');
+    setTimeout(() => btn.classList.remove('just-added'), 350);
+}
+
+/**
+ * Remove an item entirely from the cart.
+ */
+function removeFromCart(id) {
+    cart = cart.filter(item => item.id !== id);
     updateCartDisplay();
 }
 
-function removeFromCart(productId) {
-    cart = cart.filter(item => item.id !== productId);
-    updateCartDisplay();
-}
-
-function updateQuantity(productId, change) {
-    const item = cart.find(item => item.id === productId);
-    if (item) {
-        item.quantity += change;
-        if (item.quantity <= 0) {
-            removeFromCart(productId);
-        } else {
-            updateCartDisplay();
-        }
-    }
-}
-
-function updateCartDisplay() {
-    const cartItemsEl = document.getElementById('cart-items');
-    const emptyCartEl = document.getElementById('empty-cart');
-    const cartTotalEl = document.getElementById('cart-total');
-    const checkoutBtn = document.getElementById('checkout-btn');
-    
-    if (cart.length === 0) {
-        cartItemsEl.innerHTML = '<div id="empty-cart" class="text-center py-6 text-gray-500">Agregá productos al carrito</div>';
-        cartTotal = 0;
-        checkoutBtn.disabled = true;
+/**
+ * Increment or decrement an item quantity. Removes if quantity reaches 0.
+ */
+function updateQuantity(id, delta) {
+    const item = cart.find(item => item.id === id);
+    if (!item) return;
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+        removeFromCart(id);
     } else {
-        let html = '';
-        cartTotal = 0;
-        
-        cart.forEach(item => {
-            const itemTotal = item.price * item.quantity;
-            cartTotal += itemTotal;
-            
-            html += `
-                <div class="flex items-center justify-between p-2 border rounded">
-                    <div class="flex-1">
-                        <div class="font-medium text-sm">${item.name}</div>
-                        <div class="text-xs text-gray-600">$${item.price} c/u</div>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="updateQuantity(${item.id}, -1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs hover:bg-gray-300">-</button>
-                        <span class="text-sm">${item.quantity}</span>
-                        <button onclick="updateQuantity(${item.id}, 1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs hover:bg-gray-300">+</button>
-                        <button onclick="removeFromCart(${item.id})" class="text-red-600 hover:text-red-800 text-xs ml-2">×</button>
-                    </div>
-                </div>
-            `;
-        });
-        
-        cartItemsEl.innerHTML = html;
-        checkoutBtn.disabled = false;
+        updateCartDisplay();
     }
-    
-    cartTotalEl.textContent = `$${cartTotal.toFixed(2)}`;
 }
 
-function checkout() {
+/**
+ * Clear the entire cart.
+ */
+function clearCart() {
     if (cart.length === 0) return;
-    
-    const customerName = document.getElementById('customer_name').value;
-    
-    // Aquí iría la llamada AJAX al backend para procesar la venta
-    const saleData = {
-        customer_name: customerName,
-        items: cart,
-        total: cartTotal
-    };
-    
-    console.log('Procesando venta:', saleData);
-    
-    // Simulación de éxito
-    showAlert('¡Venta procesada exitosamente!', 'success');
-    
-    // Limpiar carrito
     cart = [];
     updateCartDisplay();
-    document.getElementById('customer_name').value = '';
 }
 
-// Mostrar todas las categorías al cargar
+/**
+ * Re-render the cart HTML and update totals.
+ */
+function updateCartDisplay() {
+    const cartItemsEl = document.getElementById('cart-items');
+    const cartSubtotalEl = document.getElementById('cart-subtotal');
+    const cartTotalEl = document.getElementById('cart-total');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const checkoutBtnText = document.getElementById('checkout-btn-text');
+    const clearCartBtn = document.getElementById('clear-cart-btn');
+    const cartCountLabel = document.getElementById('cart-count-label');
+    const mobileBadge = document.getElementById('mobile-cart-badge');
+
+    const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    if (cart.length === 0) {
+        cartItemsEl.innerHTML = `
+            <div id="empty-cart" class="text-center py-10 text-gray-400">
+                <svg class="mx-auto w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                </svg>
+                <p class="text-sm">Agrega productos al ticket</p>
+            </div>`;
+        cartSubtotalEl.textContent = '$0.00';
+        cartTotalEl.textContent = '$0.00';
+        checkoutBtn.disabled = true;
+        checkoutBtnText.textContent = 'Cobrar $0.00';
+        clearCartBtn.classList.add('hidden');
+        cartCountLabel.classList.add('hidden');
+        mobileBadge.textContent = '0';
+        return;
+    }
+
+    let subtotal = 0;
+    let html = '';
+
+    cart.forEach(item => {
+        const lineTotal = item.price * item.quantity;
+        subtotal += lineTotal;
+
+        html += `
+            <div class="cart-item flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div class="flex-1 min-w-0">
+                    <div class="font-medium text-sm text-gray-900 truncate">${item.name}</div>
+                    <div class="text-xs text-gray-500">$${item.price.toFixed(2)} c/u</div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="updateQuantity(${item.id}, -1)"
+                            class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors text-sm font-bold">
+                        &minus;
+                    </button>
+                    <span class="w-7 text-center text-sm font-semibold text-gray-900">${item.quantity}</span>
+                    <button onclick="updateQuantity(${item.id}, 1)"
+                            class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-colors text-sm font-bold">
+                        +
+                    </button>
+                </div>
+                <div class="text-sm font-semibold text-gray-900 w-16 text-right">$${lineTotal.toFixed(2)}</div>
+                <button onclick="removeFromCart(${item.id})"
+                        class="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>`;
+    });
+
+    cartItemsEl.innerHTML = html;
+
+    const total = subtotal; // Could add tax logic here
+    cartSubtotalEl.textContent = '$' + subtotal.toFixed(2);
+    cartTotalEl.textContent = '$' + total.toFixed(2);
+    checkoutBtn.disabled = false;
+    checkoutBtnText.textContent = 'Cobrar $' + total.toFixed(2);
+    clearCartBtn.classList.remove('hidden');
+
+    // Update item count badge
+    cartCountLabel.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
+    cartCountLabel.classList.remove('hidden');
+
+    // Mobile badge
+    mobileBadge.textContent = totalQty;
+}
+
+// ============================================================
+// Category & Search Filtering
+// ============================================================
+
+let activeCategory = 'all';
+
+/**
+ * Filter products by category. Highlights the active button.
+ */
+function filterByCategory(categoryId, btnElement) {
+    activeCategory = categoryId;
+
+    // Update button styles
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.className = btn.className
+            .replace('bg-blue-600 text-white', 'bg-white text-gray-700 border border-gray-300')
+            .replace('hover:bg-blue-700', 'hover:bg-gray-50');
+    });
+    btnElement.className = btnElement.className
+        .replace('bg-white text-gray-700 border border-gray-300', 'bg-blue-600 text-white')
+        .replace('hover:bg-gray-50', 'hover:bg-blue-700');
+
+    applyFilters();
+}
+
+/**
+ * Filter products by search text.
+ */
+function filterProducts() {
+    applyFilters();
+}
+
+/**
+ * Apply both category and search filters simultaneously.
+ */
+function applyFilters() {
+    const searchTerm = document.getElementById('product-search').value.toLowerCase().trim();
+
+    document.querySelectorAll('.product-card').forEach(card => {
+        const cardCategory = card.getAttribute('data-category');
+        const cardName = card.getAttribute('data-name');
+
+        const matchesCategory = (activeCategory === 'all' || cardCategory === activeCategory);
+        const matchesSearch = (!searchTerm || cardName.includes(searchTerm));
+
+        card.style.display = (matchesCategory && matchesSearch) ? '' : 'none';
+    });
+}
+
+// ============================================================
+// Mobile Cart Toggle
+// ============================================================
+
+function toggleMobileCart() {
+    const panel = document.getElementById('cart-panel');
+    const overlay = document.getElementById('mobile-cart-overlay');
+    panel.classList.toggle('cart-open');
+    overlay.classList.toggle('hidden');
+}
+
+// ============================================================
+// Checkout
+// ============================================================
+
+/**
+ * Process the sale: send cart data to the backend API.
+ */
+async function checkout() {
+    if (cart.length === 0) return;
+
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const checkoutBtnText = document.getElementById('checkout-btn-text');
+
+    // Get selected payment method
+    const paymentRadio = document.querySelector('input[name="payment_method"]:checked');
+    if (!paymentRadio) {
+        showAlert('Selecciona un metodo de pago.', 'error');
+        return;
+    }
+
+    const customerName = document.getElementById('customer_name').value.trim();
+    const paymentMethodId = parseInt(paymentRadio.value);
+
+    // Build items payload matching the backend API expectations
+    const items = cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.price.toFixed(2)
+    }));
+
+    const payload = {
+        items: items,
+        customer_name: customerName,
+        payment_method_id: paymentMethodId
+    };
+
+    // Disable button during request
+    checkoutBtn.disabled = true;
+    checkoutBtnText.textContent = 'Procesando...';
+
+    try {
+        const response = await fetch('/api/sales/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert(
+                'Venta #' + data.sale_number + ' registrada. Total: $' + data.total_amount,
+                'success'
+            );
+
+            // Clear cart and form
+            cart = [];
+            updateCartDisplay();
+            document.getElementById('customer_name').value = '';
+
+            // Close mobile cart if open
+            const panel = document.getElementById('cart-panel');
+            if (panel.classList.contains('cart-open')) {
+                toggleMobileCart();
+            }
+        } else {
+            showAlert('Error: ' + (data.error || 'Error desconocido'), 'error');
+            checkoutBtn.disabled = false;
+            checkoutBtnText.textContent = 'Cobrar $' + cart.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2);
+        }
+    } catch (err) {
+        showAlert('Error de conexion. Intenta nuevamente.', 'error');
+        checkoutBtn.disabled = false;
+        checkoutBtnText.textContent = 'Cobrar $' + cart.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2);
+    }
+}
+
+// ============================================================
+// Init
+// ============================================================
+
 document.addEventListener('DOMContentLoaded', function() {
-    showCategory('all');
+    updateCartDisplay();
 });
 </script>
 {% endblock %}

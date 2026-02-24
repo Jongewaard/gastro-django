@@ -3,95 +3,272 @@
 {% block title %}Productos - {{ user.tenant.name }}{% endblock %}
 
 {% block content %}
+{% with active_page='products' %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg border-l-4
+                {% if message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
+                {% elif message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
+                {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
+                <div class="flex justify-between items-center">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-lg leading-none">&times;</button>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
             <h2 class="text-2xl font-bold text-gray-900">Productos</h2>
-            <p class="text-gray-600">Gestión del menú</p>
+            <p class="mt-1 text-sm text-gray-600">Gestion del menu y catalogo de productos</p>
         </div>
-        <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-            Agregar Producto
+        <a href="{% url 'product_create' %}"
+           class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Nuevo Producto
         </a>
     </div>
 
     {% if products %}
-        <div class="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul role="list" class="divide-y divide-gray-200">
-                {% regroup products by category as category_list %}
-                {% for category in category_list %}
-                    <li class="bg-gray-50 px-4 py-3">
-                        <h3 class="text-lg font-medium text-gray-900">{{ category.grouper.name }}</h3>
-                    </li>
-                    {% for product in category.list %}
-                        <li>
-                            <div class="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
-                                <div class="flex items-center flex-1">
-                                    {% if product.image %}
-                                        <img class="h-12 w-12 rounded-lg object-cover mr-4" src="{{ product.image.url }}" alt="{{ product.name }}">
-                                    {% else %}
-                                        <div class="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center mr-4">
-                                            <span class="text-gray-500">📦</span>
-                                        </div>
-                                    {% endif %}
-                                    
-                                    <div class="flex-1">
-                                        <div class="flex items-center space-x-3">
-                                            <h4 class="text-sm font-medium text-gray-900">{{ product.name }}</h4>
-                                            {% if not product.is_active %}
-                                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Inactivo</span>
-                                            {% endif %}
-                                            {% if product.has_variants %}
-                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Variantes</span>
-                                            {% endif %}
-                                        </div>
-                                        {% if product.description %}
-                                            <p class="text-sm text-gray-600 mt-1">{{ product.description|truncatechars:100 }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-center space-x-4">
-                                    <div class="text-right">
-                                        <div class="text-lg font-medium text-gray-900">${{ product.base_price }}</div>
-                                        {% if product.track_inventory %}
-                                            <div class="text-sm text-gray-500">
-                                                Stock: {{ product.current_stock }}
-                                                {% if product.current_stock <= product.min_stock %}
-                                                    <span class="text-red-600 font-medium">¡Bajo!</span>
+        <!-- Products grouped by category -->
+        {% regroup products by category as category_list %}
+        <div class="space-y-8">
+            {% for cat_group in category_list %}
+                <div>
+                    <!-- Category Section Header -->
+                    <div class="flex items-center mb-4">
+                        {% if cat_group.grouper.icon %}
+                            <span class="text-xl mr-2">{{ cat_group.grouper.icon }}</span>
+                        {% endif %}
+                        <h3 class="text-lg font-semibold text-gray-900">{{ cat_group.grouper.name }}</h3>
+                        <span class="ml-3 px-2.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                            {{ cat_group.list|length }} producto{{ cat_group.list|length|pluralize:"s" }}
+                        </span>
+                        {% if cat_group.grouper.color %}
+                            <div class="ml-2 w-3 h-3 rounded-full" style="background-color: {{ cat_group.grouper.color }};"></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Products Table (Desktop) -->
+                    <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Variantes</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for product in cat_group.list %}
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <!-- Product Name -->
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    {% if product.image %}
+                                                        <img class="h-10 w-10 rounded-lg object-cover flex-shrink-0" src="{{ product.image.url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                                            </svg>
+                                                        </div>
+                                                    {% endif %}
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">{{ product.name }}</div>
+                                                        {% if product.description %}
+                                                            <div class="text-sm text-gray-500 max-w-xs truncate">{{ product.description|truncatechars:60 }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <!-- Category -->
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="text-sm text-gray-600">{{ product.category.name }}</span>
+                                            </td>
+
+                                            <!-- Price -->
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <span class="text-sm font-semibold text-gray-900">${{ product.base_price }}</span>
+                                            </td>
+
+                                            <!-- Active/Inactive Badge -->
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                {% if product.is_active %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        Activo
+                                                    </span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                        Inactivo
+                                                    </span>
                                                 {% endif %}
+                                            </td>
+
+                                            <!-- Has Variants Badge -->
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                {% if product.has_variants %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        Con variantes
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-sm text-gray-400">-</span>
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- Actions -->
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <div class="flex items-center justify-end space-x-2">
+                                                    <!-- Edit -->
+                                                    <a href="{% url 'product_edit' product.id %}"
+                                                       class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                                                       title="Editar producto">
+                                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                        </svg>
+                                                        Editar
+                                                    </a>
+
+                                                    <!-- Toggle Active/Inactive -->
+                                                    <form method="post" action="{% url 'product_toggle' product.id %}" class="inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit"
+                                                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors
+                                                                    {% if product.is_active %}text-yellow-700 bg-yellow-50 hover:bg-yellow-100{% else %}text-green-700 bg-green-50 hover:bg-green-100{% endif %}"
+                                                                title="{% if product.is_active %}Desactivar{% else %}Activar{% endif %} producto">
+                                                            {% if product.is_active %}
+                                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                                                </svg>
+                                                                Desactivar
+                                                            {% else %}
+                                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                                </svg>
+                                                                Activar
+                                                            {% endif %}
+                                                        </button>
+                                                    </form>
+
+                                                    <!-- Delete -->
+                                                    <form method="post" action="{% url 'product_delete' product.id %}" class="inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit"
+                                                                onclick="return confirm('¿Estas seguro de que deseas eliminar el producto &quot;{{ product.name }}&quot;? Esta accion no se puede deshacer.')"
+                                                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                                                                title="Eliminar producto">
+                                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                            </svg>
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Products Cards (Mobile alternative - hidden on desktop, shown via responsive) -->
+                    <div class="sm:hidden space-y-3 mt-3">
+                        {% for product in cat_group.list %}
+                            <div class="bg-white shadow-sm rounded-lg border border-gray-200 p-4">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center flex-1 min-w-0">
+                                        {% if product.image %}
+                                            <img class="h-12 w-12 rounded-lg object-cover flex-shrink-0" src="{{ product.image.url }}" alt="{{ product.name }}">
+                                        {% else %}
+                                            <div class="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                                </svg>
                                             </div>
                                         {% endif %}
+                                        <div class="ml-3 min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</p>
+                                            <p class="text-lg font-semibold text-gray-900">${{ product.base_price }}</p>
+                                        </div>
                                     </div>
-                                    
-                                    <div class="flex items-center space-x-2">
-                                        <a href="/admin/products/product/{{ product.id }}/change/" 
-                                           class="text-blue-600 hover:text-blue-900 text-sm">
-                                            Editar
-                                        </a>
+                                    <div class="flex flex-col items-end space-y-1 ml-2">
+                                        {% if product.is_active %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Activo</span>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactivo</span>
+                                        {% endif %}
+                                        {% if product.has_variants %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Variantes</span>
+                                        {% endif %}
                                     </div>
                                 </div>
+                                <div class="mt-3 flex items-center justify-end space-x-2 border-t pt-3">
+                                    <a href="{% url 'product_edit' product.id %}"
+                                       class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100">
+                                        Editar
+                                    </a>
+                                    <form method="post" action="{% url 'product_toggle' product.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md
+                                                    {% if product.is_active %}text-yellow-700 bg-yellow-50 hover:bg-yellow-100{% else %}text-green-700 bg-green-50 hover:bg-green-100{% endif %}">
+                                            {% if product.is_active %}Desactivar{% else %}Activar{% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'product_delete' product.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                onclick="return confirm('¿Estas seguro de que deseas eliminar el producto &quot;{{ product.name }}&quot;?')"
+                                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100">
+                                            Eliminar
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
-                        </li>
-                    {% endfor %}
-                {% endfor %}
-            </ul>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
         </div>
     {% else %}
-        <div class="text-center py-12 bg-white rounded-lg shadow">
-            <div class="text-6xl mb-4">📦</div>
-            <h3 class="text-xl font-medium text-gray-900 mb-2">Sin productos configurados</h3>
-            <p class="text-gray-600 mb-6">
-                Empezá agregando productos a tu menú
+        <!-- Empty State -->
+        <div class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-200">
+            <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <h3 class="mt-4 text-lg font-semibold text-gray-900">Sin productos configurados</h3>
+            <p class="mt-2 text-sm text-gray-600 max-w-md mx-auto">
+                Comienza agregando productos a tu catalogo para que aparezcan en el punto de venta.
             </p>
-            <div class="space-x-4">
-                <a href="/admin/products/product/add/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-                    Agregar Primer Producto
+            <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="{% url 'product_create' %}"
+                   class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Crear Primer Producto
                 </a>
-                <a href="/admin/products/category/" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Configurar Categorías
+                <a href="{% url 'categories' %}"
+                   class="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    Configurar Categorias
                 </a>
             </div>
         </div>
     {% endif %}
+
 </div>
+{% endwith %}
 {% endblock %}

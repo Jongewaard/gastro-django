@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if category %}Editar Categoria{% else %}Nueva Categoria{% endif %} - {{ user.tenant.name }}{% endblock %}
+
+{% block content %}
+{% with active_page='categories' %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg border-l-4
+                {% if message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
+                {% elif message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
+                {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
+                <div class="flex justify-between items-center">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-lg leading-none">&times;</button>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-2">
+                <li>
+                    <a href="{% url 'categories' %}" class="text-sm text-gray-500 hover:text-gray-700">Categorias</a>
+                </li>
+                <li>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </li>
+                <li>
+                    <span class="text-sm text-gray-900 font-medium">
+                        {% if category %}Editar Categoria{% else %}Nueva Categoria{% endif %}
+                    </span>
+                </li>
+            </ol>
+        </nav>
+        <h2 class="text-2xl font-bold text-gray-900">
+            {% if category %}Editar Categoria{% else %}Nueva Categoria{% endif %}
+        </h2>
+        <p class="mt-1 text-sm text-gray-600">
+            {% if category %}Modifica los datos de la categoria "{{ category.name }}"{% else %}Completa los datos para crear una nueva categoria{% endif %}
+        </p>
+    </div>
+
+    <!-- Form -->
+    <form method="post" action="" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-base font-semibold text-gray-900">Informacion de la Categoria</h3>
+            </div>
+
+            <div class="px-6 py-6 space-y-6">
+
+                <!-- Nombre -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" required maxlength="100"
+                           value="{% if category %}{{ category.name }}{% endif %}"
+                           placeholder="Ej: Pizzas, Bebidas, Postres..."
+                           class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                </div>
+
+                <!-- Descripcion -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                        Descripcion
+                    </label>
+                    <textarea id="description" name="description" rows="3"
+                              placeholder="Descripcion opcional de la categoria..."
+                              class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">{% if category %}{{ category.description }}{% endif %}</textarea>
+                </div>
+
+                <!-- Icono and Color side by side -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+                    <!-- Icono -->
+                    <div>
+                        <label for="icon" class="block text-sm font-medium text-gray-700 mb-1">
+                            Icono
+                        </label>
+                        <input type="text" id="icon" name="icon" maxlength="50"
+                               value="{% if category %}{{ category.icon }}{% endif %}"
+                               placeholder="ej: pizza-slice"
+                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                        <p class="mt-1 text-xs text-gray-500">Emoji o nombre de icono CSS para identificar la categoria.</p>
+                    </div>
+
+                    <!-- Color -->
+                    <div>
+                        <label for="color" class="block text-sm font-medium text-gray-700 mb-1">
+                            Color
+                        </label>
+                        <div class="flex items-center space-x-3">
+                            <input type="color" id="color" name="color"
+                                   value="{% if category %}{{ category.color }}{% else %}#3B82F6{% endif %}"
+                                   class="h-10 w-14 rounded-lg border border-gray-300 cursor-pointer p-0.5 bg-white">
+                            <input type="text" id="color_text" maxlength="7"
+                                   value="{% if category %}{{ category.color }}{% else %}#3B82F6{% endif %}"
+                                   class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border font-mono"
+                                   readonly>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">Color para identificar visualmente la categoria.</p>
+                    </div>
+                </div>
+
+                <!-- Orden -->
+                <div>
+                    <label for="sort_order" class="block text-sm font-medium text-gray-700 mb-1">
+                        Orden
+                    </label>
+                    <input type="number" id="sort_order" name="sort_order"
+                           value="{% if category %}{{ category.sort_order }}{% else %}0{% endif %}"
+                           min="0" step="1"
+                           placeholder="0"
+                           class="block w-full sm:w-32 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">
+                    <p class="mt-1 text-xs text-gray-500">Las categorias se ordenan de menor a mayor. Usa valores como 10, 20, 30 para facilitar reordenamientos.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+            <a href="{% url 'categories' %}"
+               class="inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                {% if category %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Guardar Cambios
+                {% else %}
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Crear
+                {% endif %}
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+    // Sync color picker with text display
+    document.getElementById('color').addEventListener('input', function() {
+        document.getElementById('color_text').value = this.value;
+    });
+</script>
+{% endwith %}
+{% endblock %}

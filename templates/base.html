@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-gray-50">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Gastro SaaS{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -21,68 +22,268 @@
     </script>
 </head>
 <body class="h-full bg-gray-50">
-    <!-- Header -->
-    <nav class="bg-white shadow-sm border-b">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 justify-between items-center">
-                <div class="flex items-center">
-                    <h1 class="text-xl font-bold text-gray-900">
-                        {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}
-                    </h1>
-                    {% if user.tenant %}
-                        <span class="ml-3 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                            {{ user.tenant.get_business_type_display }}
-                        </span>
-                    {% endif %}
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    {% if user.is_authenticated %}
-                        <span class="text-sm text-gray-600">{{ user.get_full_name|default:user.username }}</span>
-                        <a href="{% url 'admin:index' %}" class="text-sm text-blue-600 hover:text-blue-800">Admin</a>
-                        <a href="/logout/" class="text-sm text-red-600 hover:text-red-800">Salir</a>
-                    {% else %}
-                        <a href="/login/" class="text-sm text-blue-600 hover:text-blue-800">Ingresar</a>
-                    {% endif %}
-                </div>
+
+    <!-- Mobile overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-gray-900/50 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
+
+        <!-- Business header -->
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-700">
+            <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span class="text-white font-bold text-sm">G</span>
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-sm font-semibold text-white truncate">
+                    {% if user.tenant %}{{ user.tenant.name }}{% else %}Gastro SaaS{% endif %}
+                </h1>
+                {% if user.tenant %}
+                <p class="text-xs text-slate-400 truncate">{{ user.tenant.business_type.name }}</p>
+                {% endif %}
             </div>
         </div>
-    </nav>
 
-    <!-- Main Content -->
-    <main class="flex-1">
-        {% block content %}{% endblock %}
-    </main>
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6">
 
-    <!-- Footer -->
-    <footer class="bg-white border-t mt-auto">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-            <p class="text-center text-sm text-gray-500">
-                Gastro SaaS © 2026 - Sistema de gestión gastronómica
-            </p>
+            <!-- PRINCIPAL -->
+            <div>
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Principal</p>
+                <ul class="space-y-0.5">
+                    <li>
+                        <a href="{% url 'dashboard' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'dashboard' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'pos' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'pos' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                            Punto de Venta
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'orders' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'orders' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                            Pedidos
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- MENU -->
+            <div>
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
+                <ul class="space-y-0.5">
+                    <li>
+                        <a href="{% url 'products' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'products' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                            Productos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'categories' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'categories' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                            Categorias
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- INVENTARIO -->
+            <div>
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventario</p>
+                <ul class="space-y-0.5">
+                    <li>
+                        <a href="{% url 'inventory' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'inventory' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            Ingredientes
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'stock_movements' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'stock_movements' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                            Movimientos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'suppliers' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'suppliers' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10m10 0a1 1 0 01-1 1H5a1 1 0 01-1-1m10 0V8l5 2v6m0 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0m-9 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0"/></svg>
+                            Proveedores
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- PERSONAL -->
+            <div>
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Personal</p>
+                <ul class="space-y-0.5">
+                    <li>
+                        <a href="{% url 'employees' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'employees' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            Empleados
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'schedule' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'schedule' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Horarios
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'attendance' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'attendance' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Asistencia
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- CAJA -->
+            <div>
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Caja</p>
+                <ul class="space-y-0.5">
+                    <li>
+                        <a href="{% url 'cash_register' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'cash_register' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            Caja del Dia
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'expenses' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'expenses' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
+                            Gastos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'reports' %}"
+                           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {% if active_page == 'reports' %}bg-slate-700 text-white{% else %}text-slate-300 hover:bg-slate-700 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            Reportes
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+        </nav>
+
+        <!-- User info -->
+        <div class="border-t border-slate-700 px-4 py-3">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center">
+                    <span class="text-xs font-medium text-white">{{ user.username|make_list|first|upper }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-white truncate">{{ user.get_full_name|default:user.username }}</p>
+                    <span class="inline-block mt-0.5 px-1.5 py-0.5 text-xs rounded bg-slate-700 text-slate-300">{{ user.get_role_display }}</span>
+                </div>
+                <a href="{% url 'logout' %}" class="flex-shrink-0 text-slate-400 hover:text-white transition-colors" title="Cerrar sesion">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </a>
+            </div>
         </div>
-    </footer>
+
+    </aside>
+
+    <!-- Main content -->
+    <div class="lg:pl-64 min-h-screen flex flex-col">
+
+        <!-- Mobile top bar -->
+        <header class="sticky top-0 z-20 bg-white border-b border-gray-200 lg:hidden">
+            <div class="flex items-center justify-between px-4 h-14">
+                <button onclick="toggleSidebar()" class="p-2 -ml-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <h1 class="text-base font-semibold text-gray-900">{% block mobile_title %}Gastro SaaS{% endblock %}</h1>
+                <div class="w-10"></div>
+            </div>
+        </header>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div id="messages-container" class="px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
+            {% for message in messages %}
+            <div class="alert-message flex items-center justify-between p-3 rounded-lg text-sm
+                {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+                {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
+                {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+                {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                <span>{{ message }}</span>
+                <button onclick="this.parentElement.remove()" class="ml-3 flex-shrink-0 opacity-60 hover:opacity-100">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Page content -->
+        <main class="flex-1">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
 
     <script>
-        // Simple notifications
-        function showAlert(message, type = 'info') {
-            const alertDiv = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-100 border-green-500 text-green-700' : 
-                           type === 'error' ? 'bg-red-100 border-red-500 text-red-700' :
-                           'bg-blue-100 border-blue-500 text-blue-700';
-            
-            alertDiv.className = `fixed top-4 right-4 p-4 border-l-4 ${bgColor} rounded shadow-lg z-50`;
-            alertDiv.innerHTML = `
-                <div class="flex">
-                    <div class="flex-1">${message}</div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg">&times;</button>
-                </div>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => alertDiv.remove(), 5000);
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebar-overlay');
+            var isOpen = !sidebar.classList.contains('-translate-x-full');
+            if (isOpen) {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            } else {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            }
+        }
+
+        // Auto-dismiss messages after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            var alerts = document.querySelectorAll('.alert-message');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    alert.style.transition = 'opacity 0.3s ease';
+                    alert.style.opacity = '0';
+                    setTimeout(function() { alert.remove(); }, 300);
+                }, 5000);
+            });
+        });
+
+        // CSRF cookie helper for AJAX
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
     </script>
+
+    {% block extra_js %}{% endblock %}
+
 </body>
 </html>

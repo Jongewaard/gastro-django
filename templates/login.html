@@ -1,78 +1,90 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-gray-50">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Gastro SaaS</title>
+    <title>Iniciar Sesion - Gastro SaaS</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="h-full flex items-center justify-center">
-    <div class="max-w-md w-full space-y-8 p-8">
-        <div>
-            <div class="mx-auto h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-                <span class="text-3xl">🍕</span>
+<body class="h-full bg-gray-100 flex items-center justify-center px-4">
+
+    <div class="w-full max-w-sm">
+
+        <!-- Logo / icon area -->
+        <div class="text-center mb-8">
+            <div class="mx-auto w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
             </div>
-            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                Gastro SaaS
-            </h2>
-            <p class="mt-2 text-center text-sm text-gray-600">
-                Ingresá a tu sistema de gestión
-            </p>
+            <h1 class="mt-4 text-2xl font-bold text-gray-900">Gastro SaaS</h1>
+            <p class="mt-1 text-sm text-gray-500">Sistema de gestion gastronomica</p>
         </div>
-        
-        <form class="mt-8 space-y-6" method="post">
-            {% csrf_token %}
-            
+
+        <!-- Login card -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+
+            {% if form.errors %}
+            <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                <p class="text-sm text-red-700 font-medium">Usuario o contrasena incorrectos.</p>
+            </div>
+            {% endif %}
+
             {% if messages %}
                 {% for message in messages %}
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        {{ message }}
-                    </div>
+                <div class="mb-4 p-3 rounded-lg
+                    {% if message.tags == 'error' %}bg-red-50 border border-red-200
+                    {% elif message.tags == 'success' %}bg-green-50 border border-green-200
+                    {% else %}bg-blue-50 border border-blue-200{% endif %}">
+                    <p class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% else %}text-blue-700{% endif %}">{{ message }}</p>
+                </div>
                 {% endfor %}
             {% endif %}
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>
-                    <input 
-                        id="username" 
-                        name="username" 
-                        type="text" 
-                        required 
-                        class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-                        placeholder="Ingresá tu usuario"
-                    >
-                </div>
-                
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                    <input 
-                        id="password" 
-                        name="password" 
-                        type="password" 
-                        required 
-                        class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-                        placeholder="Ingresá tu contraseña"
-                    >
-                </div>
-            </div>
 
-            <div>
-                <button 
-                    type="submit" 
-                    class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                    <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        required
+                        autofocus
+                        autocomplete="username"
+                        class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                        placeholder="Ingresa tu usuario"
+                    >
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contrasena</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        autocomplete="current-password"
+                        class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                        placeholder="Ingresa tu contrasena"
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full bg-blue-600 text-white rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                 >
-                    Ingresar
+                    Iniciar Sesion
                 </button>
-            </div>
-            
-            <div class="text-center">
-                <p class="text-xs text-gray-500">
-                    ¿Problemas para ingresar? 
-                    <a href="/admin/" class="text-blue-600 hover:text-blue-500">Panel Admin</a>
-                </p>
-            </div>
-        </form>
+            </form>
+        </div>
+
+        <p class="mt-6 text-center text-xs text-gray-400">
+            Gastro SaaS &copy; 2026 - Gestion gastronomica
+        </p>
+
     </div>
+
 </body>
 </html>
