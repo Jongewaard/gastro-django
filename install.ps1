@@ -1,32 +1,50 @@
 # ============================================================
-# Gastro SaaS - Instalador / Actualizador
-# Ejecutar como: powershell -ExecutionPolicy Bypass -File install.ps1
+# Gastro SaaS - Instalador
+# Ejecutar: click derecho → "Ejecutar con PowerShell"
+# O desde terminal: powershell -ExecutionPolicy Bypass -File install.ps1
 # Idempotente: se puede ejecutar multiples veces sin romper nada
 # ============================================================
-
-$ErrorActionPreference = "Stop"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
 
 $ServiceName = "GastroSaaS_Server"
 $Port = 8000
 
+# --- Helpers ---
 function Write-Step($msg) {
     Write-Host ""
     Write-Host ">> $msg" -ForegroundColor Cyan
 }
-
 function Write-Ok($msg) {
     Write-Host "   [OK] $msg" -ForegroundColor Green
 }
-
 function Write-Skip($msg) {
     Write-Host "   [SKIP] $msg" -ForegroundColor Yellow
 }
-
 function Write-Fail($msg) {
     Write-Host "   [ERROR] $msg" -ForegroundColor Red
 }
+function Write-Warn($msg) {
+    Write-Host "   [AVISO] $msg" -ForegroundColor Yellow
+}
+
+function Refresh-Path {
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+}
+
+# --- Ubicarnos en la carpeta del script ---
+try {
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Set-Location $ScriptDir
+} catch {
+    Write-Host "[ERROR] No se pudo determinar la carpeta del script." -ForegroundColor Red
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
+
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "  Gastro SaaS - Instalador" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "  Carpeta: $ScriptDir" -ForegroundColor Gray
 
 # ============================================================
 # 1. Verificar Git
@@ -35,25 +53,29 @@ Write-Step "Verificando Git..."
 
 $gitOk = $false
 try {
-    $gitVer = git --version 2>&1
-    if ($gitVer -match "git version") {
+    $gitVer = & git --version 2>&1
+    if ($LASTEXITCODE -eq 0 -and $gitVer -match "git version") {
         Write-Ok "Git encontrado: $gitVer"
         $gitOk = $true
     }
 } catch {}
 
 if (-not $gitOk) {
-    Write-Step "Instalando Git via winget..."
+    Write-Host "   Git no encontrado. Intentando instalar..." -ForegroundColor Yellow
     try {
-        winget install Git.Git --accept-package-agreements --accept-source-agreements --silent
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-        $gitVer = git --version 2>&1
-        Write-Ok "Git instalado: $gitVer"
-    } catch {
-        Write-Fail "No se pudo instalar Git automaticamente."
+        & winget install Git.Git --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
+        Refresh-Path
+        $gitVer = & git --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Git instalado: $gitVer"
+            $gitOk = $true
+        }
+    } catch {}
+
+    if (-not $gitOk) {
+        Write-Warn "No se pudo instalar Git automaticamente."
         Write-Host "   Descargalo desde https://git-scm.com/downloads" -ForegroundColor Yellow
-        Write-Host "   (Necesario para recibir actualizaciones)" -ForegroundColor Yellow
-        # No salimos, el sistema funciona sin git, solo no puede actualizarse
+        Write-Host "   Sin Git no podras recibir actualizaciones, pero el sistema funciona." -ForegroundColor Yellow
     }
 }
 
@@ -66,7 +88,7 @@ $pythonCmd = $null
 foreach ($cmd in @("python", "python3", "py")) {
     try {
         $ver = & $cmd --version 2>&1
-        if ($ver -match "Python 3\.(\d+)") {
+        if ($LASTEXITCODE -eq 0 -and $ver -match "Python 3\.(\d+)") {
             $minor = [int]$Matches[1]
             if ($minor -ge 10) {
                 $pythonCmd = $cmd
@@ -78,17 +100,20 @@ foreach ($cmd in @("python", "python3", "py")) {
 }
 
 if (-not $pythonCmd) {
-    Write-Step "Instalando Python via winget..."
+    Write-Host "   Python no encontrado. Intentando instalar..." -ForegroundColor Yellow
     try {
-        winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements --silent
-        # Refresh PATH
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-        $pythonCmd = "python"
+        & winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
+        Refresh-Path
         $ver = & python --version 2>&1
-        Write-Ok "Python instalado: $ver"
-    } catch {
-        Write-Fail "No se pudo instalar Python automaticamente."
-        Write-Host "   Descargalo manualmente desde https://www.python.org/downloads/" -ForegroundColor Yellow
+        if ($LASTEXITCODE -eq 0 -and $ver -match "Python 3") {
+            $pythonCmd = "python"
+            Write-Ok "Python instalado: $ver"
+        }
+    } catch {}
+
+    if (-not $pythonCmd) {
+        Write-Fail "No se pudo instalar Python."
+        Write-Host "   Descargalo desde https://www.python.org/downloads/" -ForegroundColor Yellow
         Write-Host "   IMPORTANTE: Marca 'Add Python to PATH' durante la instalacion." -ForegroundColor Yellow
         Read-Host "Presiona Enter para salir"
         exit 1
@@ -101,15 +126,17 @@ if (-not $pythonCmd) {
 Write-Step "Verificando entorno virtual..."
 
 $venvPython = Join-Path $ScriptDir "venv\Scripts\python.exe"
+$venvPip = Join-Path $ScriptDir "venv\Scripts\pip.exe"
 $venvPythonW = Join-Path $ScriptDir "venv\Scripts\pythonw.exe"
 
 if (Test-Path $venvPython) {
     Write-Skip "El entorno virtual ya existe"
 } else {
     Write-Host "   Creando entorno virtual..."
-    & $pythonCmd -m venv venv
-    if ($LASTEXITCODE -ne 0) {
+    & $pythonCmd -m venv venv 2>&1
+    if (-not (Test-Path $venvPython)) {
         Write-Fail "Error al crear el entorno virtual"
+        Read-Host "Presiona Enter para salir"
         exit 1
     }
     Write-Ok "Entorno virtual creado"
@@ -120,11 +147,11 @@ if (Test-Path $venvPython) {
 # ============================================================
 Write-Step "Instalando/actualizando dependencias..."
 
-& $venvPython -m pip install --quiet --upgrade pip
-& $venvPython -m pip install --quiet -r requirements.txt
-
+& $venvPython -m pip install --quiet --upgrade pip 2>&1 | Out-Null
+& $venvPython -m pip install --quiet -r requirements.txt 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Fail "Error al instalar dependencias"
+    Write-Fail "Error al instalar dependencias. Verifica tu conexion a internet."
+    Read-Host "Presiona Enter para salir"
     exit 1
 }
 Write-Ok "Dependencias instaladas"
@@ -134,9 +161,11 @@ Write-Ok "Dependencias instaladas"
 # ============================================================
 Write-Step "Ejecutando migraciones..."
 
-& $venvPython manage.py migrate --run-syncdb 2>&1 | Out-Null
+$migrateOut = & $venvPython manage.py migrate --run-syncdb 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Fail "Error en las migraciones"
+    Write-Fail "Error en las migraciones:"
+    $migrateOut | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+    Read-Host "Presiona Enter para salir"
     exit 1
 }
 Write-Ok "Base de datos actualizada"
@@ -146,39 +175,57 @@ Write-Ok "Base de datos actualizada"
 # ============================================================
 Write-Step "Verificando superusuario..."
 
-$hasSuperuser = & $venvPython -c "
-import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pizzeria_saas.settings')
-django.setup()
-from accounts.models import User
-print('yes' if User.objects.filter(is_superuser=True).exists() else 'no')
-" 2>&1
+$hasSuperuser = & $venvPython -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','pizzeria_saas.settings');django.setup();from accounts.models import User;print('yes' if User.objects.filter(is_superuser=True).exists() else 'no')" 2>&1
 
-if ($hasSuperuser -eq "yes") {
+if ($hasSuperuser.Trim() -eq "yes") {
     Write-Skip "Ya existe un superusuario"
 } else {
-    Write-Host "   Creando superusuario..."
+    Write-Host "   Creando superusuario..." -ForegroundColor White
     Write-Host ""
     Write-Host "   Ingresa los datos del administrador:" -ForegroundColor Yellow
 
     $username = Read-Host "   Usuario"
+    if (-not $username) { $username = "admin" }
+
     $email = Read-Host "   Email (opcional, Enter para omitir)"
     if (-not $email) { $email = "" }
+
+    $password = Read-Host "   Contrasena"
+    if (-not $password) {
+        Write-Fail "La contrasena no puede estar vacia."
+        Read-Host "Presiona Enter para salir"
+        exit 1
+    }
+
+    # Use environment variables to avoid injection issues with special characters
+    $env:GASTRO_SU_USER = $username
+    $env:GASTRO_SU_EMAIL = $email
+    $env:GASTRO_SU_PASS = $password
 
     & $venvPython -c "
 import django, os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pizzeria_saas.settings')
 django.setup()
 from accounts.models import User
-user = User.objects.create_superuser('$username', '$email', input('   Contrasena: '))
-user.role = 'owner'
-user.save()
+u = User.objects.create_superuser(
+    os.environ['GASTRO_SU_USER'],
+    os.environ.get('GASTRO_SU_EMAIL', ''),
+    os.environ['GASTRO_SU_PASS']
+)
+u.role = 'owner'
+u.save()
 print('OK')
-"
+" 2>&1
+
+    # Clean up env vars
+    Remove-Item Env:GASTRO_SU_USER -ErrorAction SilentlyContinue
+    Remove-Item Env:GASTRO_SU_EMAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:GASTRO_SU_PASS -ErrorAction SilentlyContinue
+
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Error al crear superusuario"
     } else {
-        Write-Ok "Superusuario creado"
+        Write-Ok "Superusuario '$username' creado"
     }
 }
 
@@ -187,18 +234,41 @@ print('OK')
 # ============================================================
 Write-Step "Verificando servidor previo..."
 
-$running = Get-Process -Name "pythonw" -ErrorAction SilentlyContinue |
-    Where-Object {
-        try {
-            $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine
-            $cmdline -match "run_server\.pyw"
-        } catch { $false }
-    }
+$stopped = $false
 
-if ($running) {
-    Write-Host "   Deteniendo servidor anterior..."
-    $running | Stop-Process -Force
-    Start-Sleep -Seconds 2
+# Via PID file
+$pidFile = Join-Path $ScriptDir ".server.pid"
+if (Test-Path $pidFile) {
+    $oldPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+    if ($oldPid) {
+        try {
+            $proc = Get-Process -Id $oldPid -ErrorAction SilentlyContinue
+            if ($proc) {
+                Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+                $stopped = $true
+            }
+        } catch {}
+    }
+}
+
+# Via process name (fallback)
+if (-not $stopped) {
+    $running = Get-Process -Name "pythonw" -ErrorAction SilentlyContinue |
+        Where-Object {
+            try {
+                $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)" -ErrorAction SilentlyContinue).CommandLine
+                $cmdline -and $cmdline -match "run_server"
+            } catch { $false }
+        }
+    if ($running) {
+        $running | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        $stopped = $true
+    }
+}
+
+if ($stopped) {
     Write-Ok "Servidor anterior detenido"
 } else {
     Write-Skip "No hay servidor corriendo"
@@ -211,34 +281,40 @@ Write-Step "Configurando inicio automatico..."
 
 $taskExists = schtasks /Query /TN $ServiceName 2>&1
 if ($taskExists -match $ServiceName) {
-    Write-Skip "La tarea programada ya existe, actualizando..."
     schtasks /Delete /TN $ServiceName /F 2>&1 | Out-Null
 }
 
 $taskCmd = "`"$venvPythonW`" `"$(Join-Path $ScriptDir 'run_server.pyw')`""
 
+# Try ONSTART first (needs admin), fallback to ONLOGON
+$created = $false
 schtasks /Create /TN $ServiceName /TR $taskCmd /SC ONSTART /RU "$env:USERNAME" /F /RL HIGHEST 2>&1 | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-Ok "Inicio automatico configurado (al encender la PC)"
+    $created = $true
+}
 
-if ($LASTEXITCODE -ne 0) {
-    # Si ONSTART falla (requiere admin), intentar con ONLOGON
+if (-not $created) {
     schtasks /Create /TN $ServiceName /TR $taskCmd /SC ONLOGON /F 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Fail "No se pudo crear la tarea programada"
-        Write-Host "   El servidor funcionara pero no se iniciara automaticamente con Windows" -ForegroundColor Yellow
-    } else {
-        Write-Ok "Tarea programada creada (se inicia al iniciar sesion)"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Inicio automatico configurado (al iniciar sesion)"
+        $created = $true
     }
-} else {
-    Write-Ok "Tarea programada creada (se inicia con Windows)"
+}
+
+if (-not $created) {
+    Write-Warn "No se pudo configurar el inicio automatico."
+    Write-Host "   El servidor funciona, pero deberas iniciarlo manualmente." -ForegroundColor Yellow
 }
 
 # ============================================================
-# 9. Crear carpeta de backups
+# 9. Crear carpetas necesarias
 # ============================================================
-$backupDir = Join-Path $ScriptDir "backups"
-if (-not (Test-Path $backupDir)) {
-    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    Write-Ok "Carpeta de backups creada"
+foreach ($dir in @("backups", "media")) {
+    $dirPath = Join-Path $ScriptDir $dir
+    if (-not (Test-Path $dirPath)) {
+        New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
+    }
 }
 
 # ============================================================
@@ -246,34 +322,53 @@ if (-not (Test-Path $backupDir)) {
 # ============================================================
 Write-Step "Creando accesos directos..."
 
-$desktop = [Environment]::GetFolderPath("Desktop")
-$WshShell = New-Object -ComObject WScript.Shell
+try {
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    $WshShell = New-Object -ComObject WScript.Shell
 
-# Shortcut: Abrir Gastro SaaS
-$shortcut = $WshShell.CreateShortcut("$desktop\Gastro SaaS.lnk")
-$shortcut.TargetPath = "http://localhost:$Port"
-$shortcut.IconLocation = "shell32.dll,14"
-$shortcut.Description = "Abrir Gastro SaaS en el navegador"
-$shortcut.Save()
-Write-Ok "Acceso directo 'Gastro SaaS' creado en el escritorio"
+    $shortcut = $WshShell.CreateShortcut("$desktop\Gastro SaaS.lnk")
+    $shortcut.TargetPath = "http://localhost:$Port"
+    $shortcut.IconLocation = "shell32.dll,14"
+    $shortcut.Description = "Abrir Gastro SaaS en el navegador"
+    $shortcut.Save()
+    Write-Ok "Acceso directo 'Gastro SaaS' creado en el escritorio"
+} catch {
+    Write-Warn "No se pudo crear el acceso directo."
+}
 
 # ============================================================
 # 11. Iniciar servidor
 # ============================================================
 Write-Step "Iniciando servidor..."
 
-Start-Process -FilePath $venvPythonW -ArgumentList "`"$(Join-Path $ScriptDir 'run_server.pyw')`"" -WorkingDirectory $ScriptDir -WindowStyle Hidden
+$runScript = Join-Path $ScriptDir "run_server.pyw"
+if (-not (Test-Path $runScript)) {
+    Write-Fail "No se encontro run_server.pyw"
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
 
-Start-Sleep -Seconds 3
+Start-Process -FilePath $venvPythonW -ArgumentList "`"$runScript`"" -WorkingDirectory $ScriptDir -WindowStyle Hidden
+Start-Sleep -Seconds 4
 
-# Verificar que esta corriendo
-try {
-    $response = Invoke-WebRequest -Uri "http://localhost:$Port/login/" -UseBasicParsing -TimeoutSec 10
-    if ($response.StatusCode -eq 200) {
-        Write-Ok "Servidor iniciado correctamente en http://localhost:$Port"
-    }
-} catch {
-    Write-Host "   Servidor iniciando... puede tardar unos segundos mas" -ForegroundColor Yellow
+# Health check con reintentos
+$serverOk = $false
+for ($i = 1; $i -le 3; $i++) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:$Port/login/" -UseBasicParsing -TimeoutSec 5
+        if ($response.StatusCode -eq 200) {
+            $serverOk = $true
+            break
+        }
+    } catch {}
+    Start-Sleep -Seconds 2
+}
+
+if ($serverOk) {
+    Write-Ok "Servidor iniciado en http://localhost:$Port"
+} else {
+    Write-Warn "El servidor esta iniciando... puede tardar unos segundos."
+    Write-Host "   Si no abre, revisa el archivo 'server.log' para ver errores." -ForegroundColor Yellow
 }
 
 # ============================================================
@@ -281,18 +376,15 @@ try {
 # ============================================================
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host "  Gastro SaaS - Instalacion completa" -ForegroundColor Green
+Write-Host "  Gastro SaaS - Instalacion completa!" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  URL:  http://localhost:$Port" -ForegroundColor White
+Write-Host "  URL:   http://localhost:$Port" -ForegroundColor White
 Write-Host "  Admin: http://localhost:$Port/admin/" -ForegroundColor White
 Write-Host ""
 Write-Host "  El servidor se inicia automaticamente con Windows." -ForegroundColor Gray
-Write-Host "  Podes reiniciarlo desde la seccion 'Copias de Seguridad'" -ForegroundColor Gray
-Write-Host "  o ejecutando este script de nuevo." -ForegroundColor Gray
+Write-Host "  Para actualizar, ejecuta update.ps1" -ForegroundColor Gray
 Write-Host ""
 
-# Abrir en el navegador
 Start-Process "http://localhost:$Port"
-
 Read-Host "Presiona Enter para cerrar"

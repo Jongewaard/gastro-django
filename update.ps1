@@ -1,161 +1,292 @@
 # ============================================================
-# Gastro SaaS - Update Script
-# Verifica cambios en GitHub, descarga, migra y reinicia.
+# Gastro SaaS - Actualizador
+# Ejecutar: click derecho → "Ejecutar con PowerShell"
+# O desde terminal: powershell -ExecutionPolicy Bypass -File update.ps1
 # ============================================================
 
-$ErrorActionPreference = "Stop"
-$PROJECT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $PROJECT_DIR
+$Port = 8000
+
+# --- Helpers ---
+function Write-Step($num, $total, $msg) {
+    Write-Host ""
+    Write-Host "[$num/$total] $msg" -ForegroundColor Yellow
+}
+function Write-Ok($msg) {
+    Write-Host "  [OK] $msg" -ForegroundColor Green
+}
+function Write-Fail($msg) {
+    Write-Host "  [ERROR] $msg" -ForegroundColor Red
+}
+function Write-Warn($msg) {
+    Write-Host "  [AVISO] $msg" -ForegroundColor Yellow
+}
+function Bail($msg) {
+    Write-Host ""
+    Write-Fail $msg
+    Write-Host ""
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
+function Refresh-Path {
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+}
+
+# --- Ubicarnos en la carpeta del script ---
+try {
+    $PROJECT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Set-Location $PROJECT_DIR
+} catch {
+    Bail "No se pudo determinar la carpeta del script."
+}
+
+# Rutas del venv (usar siempre estas, nunca el python global)
+$venvPython = Join-Path $PROJECT_DIR "venv\Scripts\python.exe"
+$venvPip = Join-Path $PROJECT_DIR "venv\Scripts\pip.exe"
+$venvPythonW = Join-Path $PROJECT_DIR "venv\Scripts\pythonw.exe"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Gastro SaaS - Actualizacion" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "  Carpeta: $PROJECT_DIR" -ForegroundColor Gray
 
-# ---- 1. Verify git is available ----
+# ============================================================
+# 0. Pre-checks
+# ============================================================
+
+# Check venv exists
+if (-not (Test-Path $venvPython)) {
+    Bail "No se encontro el entorno virtual. Ejecuta install.ps1 primero."
+}
+
+# Check Git
+$gitOk = $false
 try {
-    $null = git --version
-} catch {
-    Write-Host "[ERROR] Git no esta instalado." -ForegroundColor Red
-    Read-Host "Presiona Enter para salir"
-    exit 1
+    $gitVer = & git --version 2>&1
+    if ($LASTEXITCODE -eq 0 -and $gitVer -match "git version") {
+        $gitOk = $true
+    }
+} catch {}
+
+if (-not $gitOk) {
+    Write-Host ""
+    Write-Warn "Git no esta instalado. Es necesario para actualizar."
+    Write-Host ""
+    $resp = Read-Host "  Queres que intente instalarlo? (S/N)"
+    if ($resp -match "^[sS]") {
+        try {
+            Write-Host "  Instalando Git..." -ForegroundColor Yellow
+            & winget install Git.Git --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
+            Refresh-Path
+            $gitVer = & git --version 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok "Git instalado: $gitVer"
+                Write-Host ""
+                Write-Warn "Necesitas cerrar y volver a abrir esta ventana para que Git funcione."
+                Write-Host "  Luego ejecuta update.ps1 de nuevo." -ForegroundColor Yellow
+                Read-Host "Presiona Enter para salir"
+                exit 0
+            }
+        } catch {}
+        Bail "No se pudo instalar Git. Descargalo desde https://git-scm.com/downloads"
+    } else {
+        Bail "Sin Git no se puede actualizar. Instalalo desde https://git-scm.com/downloads"
+    }
 }
 
-# ---- 2. Check we're in a git repo ----
+# Check we're in a git repo
 if (-not (Test-Path ".git")) {
-    Write-Host "[ERROR] Este directorio no es un repositorio git." -ForegroundColor Red
-    Read-Host "Presiona Enter para salir"
-    exit 1
+    Bail "Este directorio no es un repositorio git. Verifica la carpeta."
 }
 
-# ---- 3. Fetch remote changes ----
-Write-Host "[1/5] Verificando cambios en el servidor..." -ForegroundColor Yellow
-git fetch origin 2>&1 | Out-Null
+# Check remote is configured
+$remoteUrl = & git remote get-url origin 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Bail "No hay un repositorio remoto configurado (origin). Verifica con el administrador."
+}
 
-$LOCAL = git rev-parse HEAD
-$REMOTE = git rev-parse "origin/main"
+# ============================================================
+# 1. Check for remote changes
+# ============================================================
+Write-Step 1 5 "Verificando cambios en el servidor..."
+
+# Test internet/repo connectivity
+$fetchOut = & git fetch origin 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  Salida: $fetchOut" -ForegroundColor Gray
+    Bail "No se pudo conectar al servidor. Verifica tu conexion a internet."
+}
+
+$LOCAL = & git rev-parse HEAD 2>&1
+$REMOTE = & git rev-parse "origin/main" 2>&1
+
+if ($LASTEXITCODE -ne 0) {
+    Bail "No se pudo determinar el estado del repositorio."
+}
 
 if ($LOCAL -eq $REMOTE) {
     Write-Host ""
-    Write-Host "[OK] El sistema ya esta actualizado. No hay cambios nuevos." -ForegroundColor Green
+    Write-Ok "El sistema ya esta actualizado. No hay cambios nuevos."
     Write-Host ""
     Read-Host "Presiona Enter para salir"
     exit 0
 }
 
-Write-Host "  Se encontraron cambios nuevos." -ForegroundColor White
+# ============================================================
+# 2. Show what will change
+# ============================================================
+Write-Step 2 5 "Cambios pendientes:"
 
-# ---- 4. Show what changed ----
-Write-Host ""
-Write-Host "[2/5] Cambios pendientes:" -ForegroundColor Yellow
-git log --oneline "$LOCAL..$REMOTE"
+& git log --oneline "$LOCAL..$REMOTE"
 Write-Host ""
 
-# Check if there are migration file changes
-$DIFF_FILES = git diff --name-only "$LOCAL..$REMOTE"
+# Detect what kind of changes are coming
+$DIFF_FILES = & git diff --name-only "$LOCAL..$REMOTE" 2>&1
 $HAS_MIGRATIONS = $DIFF_FILES | Where-Object { $_ -match "migrations/" }
 $HAS_REQUIREMENTS = $DIFF_FILES | Where-Object { $_ -match "requirements" }
 
-# ---- 5. Pull changes ----
-Write-Host "[3/5] Descargando cambios..." -ForegroundColor Yellow
-try {
-    git pull origin main 2>&1
-    Write-Host "  Descarga completada." -ForegroundColor Green
-} catch {
-    Write-Host "[ERROR] Fallo el git pull. Verifica conflictos manualmente." -ForegroundColor Red
-    Read-Host "Presiona Enter para salir"
-    exit 1
-}
-
-# ---- 6. Activate virtual environment ----
-$VENV_ACTIVATE = Join-Path $PROJECT_DIR "venv\Scripts\Activate.ps1"
-if (Test-Path $VENV_ACTIVATE) {
-    & $VENV_ACTIVATE
-} else {
-    Write-Host "[WARN] No se encontro venv. Usando Python global." -ForegroundColor Yellow
-}
-
-# ---- 7. Update dependencies if requirements changed ----
-if ($HAS_REQUIREMENTS) {
-    Write-Host ""
-    Write-Host "[3.5/5] Actualizando dependencias..." -ForegroundColor Yellow
-    pip install -r requirements.txt --quiet 2>&1
-    Write-Host "  Dependencias actualizadas." -ForegroundColor Green
-}
-
-# ---- 8. Run migrations if needed ----
-Write-Host ""
 if ($HAS_MIGRATIONS) {
-    Write-Host "[4/5] Se detectaron cambios en la base de datos. Migrando..." -ForegroundColor Yellow
+    Write-Host "  * Incluye cambios en la base de datos" -ForegroundColor Magenta
+}
+if ($HAS_REQUIREMENTS) {
+    Write-Host "  * Incluye cambios en dependencias" -ForegroundColor Magenta
+}
+
+# ============================================================
+# 3. Pull changes
+# ============================================================
+Write-Step 3 5 "Descargando cambios..."
+
+# Check for local uncommitted changes that could conflict
+$localChanges = & git status --porcelain 2>&1
+if ($localChanges) {
+    Write-Warn "Hay archivos modificados localmente. Guardando cambios temporales..."
+    & git stash --include-untracked 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Bail "No se pudieron guardar los cambios locales. Contacta al administrador."
+    }
+    Write-Ok "Cambios locales guardados (se restauraran despues)"
+}
+
+$pullOut = & git pull origin main 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  $pullOut" -ForegroundColor Red
+    # Try to restore stash if we stashed
+    if ($localChanges) {
+        & git stash pop 2>&1 | Out-Null
+    }
+    Bail "Fallo la descarga. Contacta al administrador."
+}
+Write-Ok "Descarga completada"
+
+# Restore stashed changes if any
+if ($localChanges) {
+    & git stash pop 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Algunos cambios locales pueden tener conflictos. Revisa manualmente."
+    } else {
+        Write-Ok "Cambios locales restaurados"
+    }
+}
+
+# ============================================================
+# 4. Update dependencies + migrate
+# ============================================================
+
+# 4a. Dependencies
+if ($HAS_REQUIREMENTS) {
+    Write-Step 4 5 "Actualizando dependencias..."
+    & $venvPython -m pip install --quiet -r requirements.txt 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Hubo un problema instalando dependencias. El sistema puede funcionar igual."
+    } else {
+        Write-Ok "Dependencias actualizadas"
+    }
 } else {
-    Write-Host "[4/5] Verificando migraciones pendientes..." -ForegroundColor Yellow
+    Write-Step 4 5 "Verificando base de datos..."
 }
 
-try {
-    $MIGRATE_OUTPUT = python manage.py migrate 2>&1
-    $MIGRATE_OUTPUT | ForEach-Object { Write-Host "  $_" }
-    Write-Host "  Migraciones completadas." -ForegroundColor Green
-} catch {
-    Write-Host "[ERROR] Fallo al migrar la base de datos." -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    Read-Host "Presiona Enter para salir"
-    exit 1
+# 4b. Migrations (always run - safe to run even without changes)
+$migrateOut = & $venvPython manage.py migrate 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "Error en las migraciones:"
+    $migrateOut | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+    Write-Host ""
+    Write-Warn "La actualizacion del codigo se completo pero la base de datos puede tener problemas."
+    Write-Host "  Contacta al administrador." -ForegroundColor Yellow
+} else {
+    Write-Ok "Base de datos actualizada"
 }
 
-# ---- 9. Restart server ----
-Write-Host ""
-Write-Host "[5/5] Reiniciando servidor..." -ForegroundColor Yellow
+# ============================================================
+# 5. Restart server
+# ============================================================
+Write-Step 5 5 "Reiniciando servidor..."
 
-# Method 1: Stop via PID file
-$PID_FILE = Join-Path $PROJECT_DIR ".server.pid"
-if (Test-Path $PID_FILE) {
-    $PID = Get-Content $PID_FILE -ErrorAction SilentlyContinue
-    if ($PID) {
+# Stop via PID file
+$pidFile = Join-Path $PROJECT_DIR ".server.pid"
+$stopped = $false
+
+if (Test-Path $pidFile) {
+    $oldPid = (Get-Content $pidFile -ErrorAction SilentlyContinue).Trim()
+    if ($oldPid -match '^\d+$') {
         try {
-            $PROCESS = Get-Process -Id $PID -ErrorAction SilentlyContinue
-            if ($PROCESS) {
-                Stop-Process -Id $PID -Force -ErrorAction SilentlyContinue
-                Write-Host "  Servidor anterior detenido (PID $PID)." -ForegroundColor White
+            $proc = Get-Process -Id $oldPid -ErrorAction SilentlyContinue
+            if ($proc) {
+                Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue
+                Write-Host "  Servidor detenido (PID $oldPid)" -ForegroundColor Gray
+                Start-Sleep -Seconds 2
+                $stopped = $true
+            }
+        } catch {}
+    }
+}
+
+# Fallback: kill pythonw running run_server
+if (-not $stopped) {
+    Get-Process -Name "pythonw" -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)" -ErrorAction SilentlyContinue).CommandLine
+            if ($cmdline -and $cmdline -match "run_server") {
+                Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
                 Start-Sleep -Seconds 2
             }
         } catch {}
     }
 }
 
-# Method 2: Kill any waitress process on port 8000
-$PORT_PROCESSES = netstat -ano 2>$null | Select-String ":8000\s" | ForEach-Object {
-    ($_ -split '\s+')[-1]
-} | Sort-Object -Unique
-foreach ($P in $PORT_PROCESSES) {
-    if ($P -and $P -ne "0") {
+# Start server
+$runScript = Join-Path $PROJECT_DIR "run_server.pyw"
+if (Test-Path $runScript) {
+    Start-Process -FilePath $venvPythonW -ArgumentList "`"$runScript`"" -WorkingDirectory $PROJECT_DIR -WindowStyle Hidden
+    Start-Sleep -Seconds 4
+
+    # Health check con reintentos
+    $serverOk = $false
+    for ($i = 1; $i -le 3; $i++) {
         try {
-            Stop-Process -Id $P -Force -ErrorAction SilentlyContinue
+            $resp = Invoke-WebRequest -Uri "http://localhost:$Port/login/" -UseBasicParsing -TimeoutSec 5
+            if ($resp.StatusCode -eq 200) {
+                $serverOk = $true
+                break
+            }
         } catch {}
+        Start-Sleep -Seconds 2
     }
-}
 
-# Start server via run_server.pyw
-$RUN_SCRIPT = Join-Path $PROJECT_DIR "run_server.pyw"
-if (Test-Path $RUN_SCRIPT) {
-    Start-Process pythonw $RUN_SCRIPT -WindowStyle Hidden
-    Write-Host "  Servidor iniciado." -ForegroundColor Green
-    Start-Sleep -Seconds 3
-
-    # Quick health check
-    try {
-        $RESP = Invoke-WebRequest -Uri "http://localhost:8000/login/" -UseBasicParsing -TimeoutSec 5
-        if ($RESP.StatusCode -eq 200) {
-            Write-Host "  Servidor respondiendo correctamente." -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "  [WARN] El servidor esta iniciando, puede tardar unos segundos." -ForegroundColor Yellow
+    if ($serverOk) {
+        Write-Ok "Servidor funcionando correctamente"
+    } else {
+        Write-Warn "El servidor esta iniciando... puede tardar unos segundos."
+        Write-Host "  Si no funciona, revisa 'server.log' o ejecuta install.ps1" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  [WARN] No se encontro run_server.pyw. Reinicia el servidor manualmente." -ForegroundColor Yellow
+    Write-Warn "No se encontro run_server.pyw. Reinicia el servidor manualmente."
 }
 
-# ---- Done ----
+# ============================================================
+# Done
+# ============================================================
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "  Actualizacion completada!" -ForegroundColor Green
