@@ -215,7 +215,7 @@ if __name__ == '__main__':
             consecutive_fast_crashes += 1
             if consecutive_fast_crashes >= 5:
                 log('ERROR: El servidor crashea inmediatamente (5 veces seguidas). Deteniendo.')
-                log('Revisa server.log para ver el error. Ejecuta install.ps1 de nuevo.')
+                log('Revisa server.log para ver el error. Ejecuta INSTALAR.bat de nuevo.')
                 break
             log(f'Crash rapido #{consecutive_fast_crashes}. Reintentando en 5s...')
             time.sleep(5)

@@ -1,7 +1,7 @@
 # ============================================================
 # Gastro SaaS - Actualizador
-# Ejecutar: click derecho → "Ejecutar con PowerShell"
-# O desde terminal: powershell -ExecutionPolicy Bypass -File update.ps1
+# NO ejecutar directamente - usar ACTUALIZAR.bat
+# O desde terminal: powershell -ExecutionPolicy Bypass -File _update.ps1
 # ============================================================
 
 $Port = 8000
@@ -56,7 +56,7 @@ Write-Host "  Carpeta: $PROJECT_DIR" -ForegroundColor Gray
 
 # Check venv exists
 if (-not (Test-Path $venvPython)) {
-    Bail "No se encontro el entorno virtual. Ejecuta install.ps1 primero."
+    Bail "No se encontro el entorno virtual. Ejecuta INSTALAR.bat primero."
 }
 
 # Check Git
@@ -83,7 +83,7 @@ if (-not $gitOk) {
                 Write-Ok "Git instalado: $gitVer"
                 Write-Host ""
                 Write-Warn "Necesitas cerrar y volver a abrir esta ventana para que Git funcione."
-                Write-Host "  Luego ejecuta update.ps1 de nuevo." -ForegroundColor Yellow
+                Write-Host "  Luego ejecuta ACTUALIZAR.bat de nuevo." -ForegroundColor Yellow
                 Read-Host "Presiona Enter para salir"
                 exit 0
             }
@@ -278,7 +278,7 @@ if (Test-Path $runScript) {
         Write-Ok "Servidor funcionando correctamente"
     } else {
         Write-Warn "El servidor esta iniciando... puede tardar unos segundos."
-        Write-Host "  Si no funciona, revisa 'server.log' o ejecuta install.ps1" -ForegroundColor Yellow
+        Write-Host "  Si no funciona, revisa 'server.log' o ejecuta INSTALAR.bat" -ForegroundColor Yellow
     }
 } else {
     Write-Warn "No se encontro run_server.pyw. Reinicia el servidor manualmente."

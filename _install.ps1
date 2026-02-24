@@ -1,7 +1,7 @@
 # ============================================================
 # Gastro SaaS - Instalador
-# Ejecutar: click derecho → "Ejecutar con PowerShell"
-# O desde terminal: powershell -ExecutionPolicy Bypass -File install.ps1
+# NO ejecutar directamente - usar INSTALAR.bat
+# O desde terminal: powershell -ExecutionPolicy Bypass -File _install.ps1
 # Idempotente: se puede ejecutar multiples veces sin romper nada
 # ============================================================
 
@@ -383,7 +383,7 @@ Write-Host "  URL:   http://localhost:$Port" -ForegroundColor White
 Write-Host "  Admin: http://localhost:$Port/admin/" -ForegroundColor White
 Write-Host ""
 Write-Host "  El servidor se inicia automaticamente con Windows." -ForegroundColor Gray
-Write-Host "  Para actualizar, ejecuta update.ps1" -ForegroundColor Gray
+Write-Host "  Para actualizar, ejecuta ACTUALIZAR.bat" -ForegroundColor Gray
 Write-Host ""
 
 Start-Process "http://localhost:$Port"

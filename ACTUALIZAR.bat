@@ -1,3 +1,3 @@
 @echo off
 title Gastro SaaS - Actualizacion
-powershell -ExecutionPolicy Bypass -File "%~dp0update.ps1"
+powershell -ExecutionPolicy Bypass -File "%~dp0_update.ps1"
