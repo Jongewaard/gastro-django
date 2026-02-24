@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(venv/Scripts/python.exe manage.py makemigrations:*)",
+      "Bash(venv/Scripts/python.exe manage.py:*)",
+      "Bash(venv/Scripts/python.exe:*)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(source:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python populate_initial_data.py:*)",
+      "Bash(test:*)",
+      "Bash(python manage.py:*)",
+      "Bash(gh auth status:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(pip install:*)",
+      "Bash(xargs cat:*)",
+      "Bash(git mv:*)",
+      "Bash(venv/Scripts/pip.exe install:*)"
     ]
   }
 }
