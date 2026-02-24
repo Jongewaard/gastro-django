@@ -71,3 +71,4 @@ backups/*.sqlite3.gz
 # Server runtime files
 server.log
 .stop_server
+.server.pid
