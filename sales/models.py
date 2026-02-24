@@ -30,6 +30,14 @@ class Sale(models.Model):
     sale_number = models.CharField(max_length=20, help_text="Número de ticket/factura")
     customer_name = models.CharField(max_length=100, blank=True)
     
+    # Order type
+    ORDER_TYPE_CHOICES = [
+        ('local', 'Local'),
+        ('takeaway', 'Para Llevar'),
+        ('delivery', 'Delivery'),
+    ]
+    order_type = models.CharField(max_length=20, choices=ORDER_TYPE_CHOICES, default='local')
+
     # Status
     STATUS_CHOICES = [
         ('pending', 'Pendiente'),

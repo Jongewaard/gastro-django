@@ -14,14 +14,14 @@ class PaymentMethodAdmin(admin.ModelAdmin):
 class SaleItemInline(admin.TabularInline):
     model = SaleItem
     extra = 0
-    fields = ['product', 'quantity', 'unit_price', 'notes']
+    fields = ['product', 'quantity', 'unit_price', 'selected_variants', 'notes']
     readonly_fields = ['unit_price']  # Se puede calcular automáticamente
 
 
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
-    list_display = ['sale_number', 'tenant', 'customer_name', 'status', 'total_amount', 'payment_method', 'is_paid', 'created_at']
-    list_filter = ['tenant', 'status', 'payment_method', 'is_paid', 'created_at']
+    list_display = ['sale_number', 'tenant', 'customer_name', 'order_type', 'status', 'total_amount', 'payment_method', 'is_paid', 'created_at']
+    list_filter = ['tenant', 'status', 'order_type', 'payment_method', 'is_paid', 'created_at']
     search_fields = ['sale_number', 'customer_name', 'payment_reference']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'created_at'
@@ -30,7 +30,7 @@ class SaleAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Información de la Venta', {
-            'fields': ('tenant', 'sale_number', 'customer_name', 'status', 'created_by')
+            'fields': ('tenant', 'sale_number', 'customer_name', 'order_type', 'status', 'created_by')
         }),
         ('Totales', {
             'fields': ('subtotal', 'tax_amount', 'discount_amount', 'total_amount')

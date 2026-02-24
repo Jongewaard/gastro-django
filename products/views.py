@@ -77,6 +77,9 @@ def product_create(request):
                 requires_preparation=requires_preparation,
                 is_active=is_active,
             )
+            if request.FILES.get('image'):
+                product.image = request.FILES['image']
+                product.save(update_fields=['image'])
 
             messages.success(request, f'Producto "{product.name}" creado exitosamente.')
             return redirect('products')
@@ -138,6 +141,12 @@ def product_edit(request, product_id):
             product.has_variants = has_variants
             product.requires_preparation = requires_preparation
             product.is_active = is_active
+
+            if request.POST.get('remove_image'):
+                product.image = ''
+            elif request.FILES.get('image'):
+                product.image = request.FILES['image']
+
             product.save()
 
             messages.success(request, f'Producto "{product.name}" actualizado exitosamente.')

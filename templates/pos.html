@@ -60,16 +60,26 @@
         <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {% for product in products %}
             {% if product.is_active %}
-            <button onclick="addToCart({{ product.id }}, '{{ product.name|escapejs }}', {{ product.base_price }})"
-                    class="product-card group relative p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-md text-left transition-all duration-150 active:scale-95"
+            <button onclick="handleProductClick({{ product.id }}, '{{ product.name|escapejs }}', {{ product.base_price }}, {{ product.has_variants|yesno:'true,false' }})"
+                    class="product-card group relative bg-white border border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-md text-left transition-all duration-150 active:scale-95 overflow-hidden"
                     data-category="{{ product.category.id }}"
                     data-name="{{ product.name|lower }}">
-                <div class="font-semibold text-gray-900 text-sm leading-tight mb-1 group-hover:text-blue-600 transition-colors">
-                    {{ product.name }}
+                {% if product.image %}
+                <div class="w-full h-24 bg-gray-100">
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-full object-cover">
                 </div>
-                <div class="text-blue-600 font-bold text-lg">${{ product.base_price }}</div>
+                {% endif %}
+                <div class="p-4">
+                    <div class="font-semibold text-gray-900 text-sm leading-tight mb-1 group-hover:text-blue-600 transition-colors">
+                        {{ product.name }}
+                    </div>
+                    <div class="text-blue-600 font-bold text-lg">${{ product.base_price }}</div>
+                </div>
                 {% if product.category.icon %}
                 <div class="absolute top-2 right-2 text-xs opacity-50">{{ product.category.icon }}</div>
+                {% endif %}
+                {% if product.has_variants %}
+                <div class="absolute top-2 left-2 bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded">VAR</div>
                 {% endif %}
                 <!-- Click feedback overlay -->
                 <div class="added-feedback absolute inset-0 bg-green-500 bg-opacity-20 rounded-xl flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
@@ -143,10 +153,59 @@
 
         <!-- Cart footer: totals + checkout -->
         <div class="border-t bg-white px-5 py-4 space-y-3">
+            <!-- Order type -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1.5">Tipo de pedido</label>
+                <div class="flex gap-2">
+                    <button type="button" onclick="setOrderType('local')" id="ot-local"
+                            class="order-type-btn flex-1 text-center px-2 py-1.5 border rounded-lg text-xs font-medium border-blue-500 bg-blue-50 text-blue-700">
+                        Local
+                    </button>
+                    <button type="button" onclick="setOrderType('takeaway')" id="ot-takeaway"
+                            class="order-type-btn flex-1 text-center px-2 py-1.5 border rounded-lg text-xs font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
+                        Llevar
+                    </button>
+                    <button type="button" onclick="setOrderType('delivery')" id="ot-delivery"
+                            class="order-type-btn flex-1 text-center px-2 py-1.5 border rounded-lg text-xs font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
+                        Delivery
+                    </button>
+                </div>
+            </div>
+
+            <!-- Delivery fields (hidden by default) -->
+            <div id="delivery-fields" class="hidden space-y-2">
+                <input type="text" id="delivery_address" placeholder="Direccion de entrega"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <input type="text" id="delivery_phone" placeholder="Telefono"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-500 whitespace-nowrap">Envio $</label>
+                    <input type="number" id="delivery_fee" value="0" min="0" step="0.01"
+                           onchange="updateCartDisplay()"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- Discount -->
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500 whitespace-nowrap">Descuento $</label>
+                <input type="number" id="discount_amount" value="0" min="0" step="0.01"
+                       onchange="updateCartDisplay()"
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
             <!-- Subtotal -->
             <div class="flex justify-between text-sm text-gray-600">
                 <span>Subtotal</span>
                 <span id="cart-subtotal">$0.00</span>
+            </div>
+            <div id="discount-line" class="hidden flex justify-between text-sm text-red-500">
+                <span>Descuento</span>
+                <span id="cart-discount">-$0.00</span>
+            </div>
+            <div id="delivery-fee-line" class="hidden flex justify-between text-sm text-gray-600">
+                <span>Envio</span>
+                <span id="cart-delivery-fee">$0.00</span>
             </div>
 
             <!-- Total -->
@@ -194,6 +253,27 @@
     </div>
 </div>
 
+<!-- Variant selection modal -->
+<div id="variant-modal" class="fixed inset-0 z-[60] hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeVariantModal()"></div>
+    <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+        <div class="px-5 py-4 border-b bg-gray-50">
+            <h3 id="variant-modal-title" class="text-lg font-semibold text-gray-900">Seleccionar variantes</h3>
+            <p id="variant-modal-price" class="text-sm text-gray-500">Precio base: $0.00</p>
+        </div>
+        <div id="variant-modal-body" class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            <!-- Variant groups rendered by JS -->
+        </div>
+        <div class="px-5 py-4 border-t bg-gray-50 flex items-center justify-between">
+            <div class="text-lg font-bold text-gray-900">Total: <span id="variant-modal-total">$0.00</span></div>
+            <div class="flex gap-2">
+                <button onclick="closeVariantModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+                <button onclick="confirmVariantSelection()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Agregar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     /* Hide scrollbar for category row but keep it scrollable */
     .overflow-x-auto::-webkit-scrollbar { display: none; }
@@ -221,16 +301,16 @@
 
 <script>
 // ============================================================
-// POS - Cart State Management
+// POS - State
 // ============================================================
 
 let cart = [];
+let currentOrderType = 'local';
+const PRODUCT_VARIANTS = {{ products_variants_json|safe }};
 
-// showAlert is now provided globally by base.html (as alias of showToast)
+// Variant modal state
+let variantModalProduct = null;
 
-/**
- * Get CSRF token from cookies for fetch requests.
- */
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -246,73 +326,194 @@ function getCookie(name) {
     return cookieValue;
 }
 
-/**
- * Add a product to cart or increment its quantity if already present.
- */
-function addToCart(id, name, price) {
-    const existing = cart.find(item => item.id === id);
+// ============================================================
+// Product Click → add or open variant modal
+// ============================================================
+
+function handleProductClick(id, name, price, hasVariants) {
+    if (hasVariants && PRODUCT_VARIANTS[id]) {
+        openVariantModal(id, name, price);
+    } else {
+        addToCart(id, name, parseFloat(price), []);
+        const btn = event.currentTarget;
+        btn.classList.add('just-added');
+        setTimeout(() => btn.classList.remove('just-added'), 350);
+    }
+}
+
+// ============================================================
+// Variant Modal
+// ============================================================
+
+function openVariantModal(id, name, price) {
+    variantModalProduct = { id, name, basePrice: parseFloat(price), selected: {} };
+    const variants = PRODUCT_VARIANTS[id];
+
+    document.getElementById('variant-modal-title').textContent = name;
+    document.getElementById('variant-modal-price').textContent = 'Precio base: $' + parseFloat(price).toFixed(2);
+
+    let html = '';
+    for (const [typeName, options] of Object.entries(variants)) {
+        const typeKey = options[0].type_key;
+        // size/flavor = radio (pick one), topping = checkbox (pick many)
+        const isMulti = (typeKey === 'topping' || typeKey === 'custom');
+        html += `<div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">${typeName}</label>
+            <div class="space-y-1">`;
+        options.forEach((opt, idx) => {
+            const inputType = isMulti ? 'checkbox' : 'radio';
+            const inputName = 'variant_' + typeKey;
+            const checked = (!isMulti && opt.is_default) ? 'checked' : '';
+            const modLabel = opt.price_modifier > 0 ? ` (+$${opt.price_modifier.toFixed(2)})` : opt.price_modifier < 0 ? ` (-$${Math.abs(opt.price_modifier).toFixed(2)})` : '';
+            html += `
+                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input type="${inputType}" name="${inputName}" value="${opt.id}"
+                           data-price="${opt.price_modifier}" data-name="${opt.name}" data-type="${typeName}"
+                           ${checked} onchange="updateVariantTotal()"
+                           class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 ${isMulti ? 'rounded' : ''}">
+                    <span class="text-sm text-gray-900">${opt.name}</span>
+                    <span class="text-xs text-gray-500">${modLabel}</span>
+                </label>`;
+        });
+        html += `</div></div>`;
+
+        // Set default selection
+        if (!isMulti) {
+            const defaultOpt = options.find(o => o.is_default) || options[0];
+            if (defaultOpt) {
+                variantModalProduct.selected[typeKey] = [defaultOpt];
+            }
+        }
+    }
+    document.getElementById('variant-modal-body').innerHTML = html;
+    updateVariantTotal();
+    document.getElementById('variant-modal').classList.remove('hidden');
+}
+
+function updateVariantTotal() {
+    if (!variantModalProduct) return;
+    let extra = 0;
+    const checked = document.querySelectorAll('#variant-modal-body input:checked');
+    checked.forEach(input => { extra += parseFloat(input.dataset.price); });
+    const total = variantModalProduct.basePrice + extra;
+    document.getElementById('variant-modal-total').textContent = '$' + total.toFixed(2);
+}
+
+function closeVariantModal() {
+    document.getElementById('variant-modal').classList.add('hidden');
+    variantModalProduct = null;
+}
+
+function confirmVariantSelection() {
+    if (!variantModalProduct) return;
+    const checked = document.querySelectorAll('#variant-modal-body input:checked');
+    let extra = 0;
+    const selectedVariants = [];
+    checked.forEach(input => {
+        extra += parseFloat(input.dataset.price);
+        selectedVariants.push({
+            id: parseInt(input.value),
+            name: input.dataset.name,
+            type: input.dataset.type,
+            price_modifier: parseFloat(input.dataset.price),
+        });
+    });
+    const finalPrice = variantModalProduct.basePrice + extra;
+    // For variant products, use a unique cart key (product_id + variant combo)
+    const variantKey = variantModalProduct.id + '_' + selectedVariants.map(v => v.id).sort().join('-');
+    const variantLabel = selectedVariants.map(v => v.name).join(', ');
+
+    const existing = cart.find(item => item.cartKey === variantKey);
     if (existing) {
         existing.quantity += 1;
     } else {
-        cart.push({ id: id, name: name, price: parseFloat(price), quantity: 1 });
+        cart.push({
+            id: variantModalProduct.id,
+            cartKey: variantKey,
+            name: variantModalProduct.name + (variantLabel ? ' (' + variantLabel + ')' : ''),
+            price: finalPrice,
+            quantity: 1,
+            variants: selectedVariants,
+        });
     }
     updateCartDisplay();
-
-    // Visual feedback on the clicked product card
-    const btn = event.currentTarget;
-    btn.classList.add('just-added');
-    setTimeout(() => btn.classList.remove('just-added'), 350);
+    closeVariantModal();
 }
 
-/**
- * Remove an item entirely from the cart.
- */
-function removeFromCart(id) {
-    cart = cart.filter(item => item.id !== id);
+// ============================================================
+// Cart Management
+// ============================================================
+
+function addToCart(id, name, price, variants) {
+    const cartKey = id + '_base';
+    const existing = cart.find(item => item.cartKey === cartKey);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        cart.push({ id: id, cartKey: cartKey, name: name, price: price, quantity: 1, variants: variants || [] });
+    }
     updateCartDisplay();
 }
 
-/**
- * Increment or decrement an item quantity. Removes if quantity reaches 0.
- */
-function updateQuantity(id, delta) {
-    const item = cart.find(item => item.id === id);
+function removeFromCart(cartKey) {
+    cart = cart.filter(item => item.cartKey !== cartKey);
+    updateCartDisplay();
+}
+
+function updateQuantity(cartKey, delta) {
+    const item = cart.find(item => item.cartKey === cartKey);
     if (!item) return;
     item.quantity += delta;
     if (item.quantity <= 0) {
-        removeFromCart(id);
+        removeFromCart(cartKey);
     } else {
         updateCartDisplay();
     }
 }
 
-/**
- * Set an item quantity directly from input. Removes if invalid or 0.
- */
-function setQuantity(id, value) {
-    const item = cart.find(item => item.id === id);
+function setQuantity(cartKey, value) {
+    const item = cart.find(item => item.cartKey === cartKey);
     if (!item) return;
     const qty = parseInt(value, 10);
     if (!qty || qty <= 0) {
-        removeFromCart(id);
+        removeFromCart(cartKey);
     } else {
         item.quantity = Math.min(qty, 999);
         updateCartDisplay();
     }
 }
 
-/**
- * Clear the entire cart.
- */
 function clearCart() {
     if (cart.length === 0) return;
     cart = [];
     updateCartDisplay();
 }
 
-/**
- * Re-render the cart HTML and update totals.
- */
+// ============================================================
+// Order Type
+// ============================================================
+
+function setOrderType(type) {
+    currentOrderType = type;
+    document.querySelectorAll('.order-type-btn').forEach(btn => {
+        btn.className = 'order-type-btn flex-1 text-center px-2 py-1.5 border rounded-lg text-xs font-medium border-gray-300 text-gray-700 hover:bg-gray-50';
+    });
+    document.getElementById('ot-' + type).className = 'order-type-btn flex-1 text-center px-2 py-1.5 border rounded-lg text-xs font-medium border-blue-500 bg-blue-50 text-blue-700';
+
+    const deliveryFields = document.getElementById('delivery-fields');
+    if (type === 'delivery') {
+        deliveryFields.classList.remove('hidden');
+    } else {
+        deliveryFields.classList.add('hidden');
+        document.getElementById('delivery_fee').value = '0';
+    }
+    updateCartDisplay();
+}
+
+// ============================================================
+// Cart Display
+// ============================================================
+
 function updateCartDisplay() {
     const cartItemsEl = document.getElementById('cart-items');
     const cartSubtotalEl = document.getElementById('cart-subtotal');
@@ -322,8 +523,12 @@ function updateCartDisplay() {
     const clearCartBtn = document.getElementById('clear-cart-btn');
     const cartCountLabel = document.getElementById('cart-count-label');
     const mobileBadge = document.getElementById('mobile-cart-badge');
+    const discountLine = document.getElementById('discount-line');
+    const deliveryFeeLine = document.getElementById('delivery-fee-line');
 
     const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const discount = parseFloat(document.getElementById('discount_amount').value) || 0;
+    const deliveryFee = (currentOrderType === 'delivery') ? (parseFloat(document.getElementById('delivery_fee').value) || 0) : 0;
 
     if (cart.length === 0) {
         cartItemsEl.innerHTML = `
@@ -341,6 +546,8 @@ function updateCartDisplay() {
         clearCartBtn.classList.add('hidden');
         cartCountLabel.classList.add('hidden');
         mobileBadge.textContent = '0';
+        discountLine.classList.add('hidden');
+        deliveryFeeLine.classList.add('hidden');
         return;
     }
 
@@ -350,6 +557,7 @@ function updateCartDisplay() {
     cart.forEach(item => {
         const lineTotal = item.price * item.quantity;
         subtotal += lineTotal;
+        const ck = item.cartKey.replace(/'/g, "\\'");
 
         html += `
             <div class="cart-item flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -358,21 +566,21 @@ function updateCartDisplay() {
                     <div class="text-xs text-gray-500">$${item.price.toFixed(2)} c/u</div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button onclick="updateQuantity(${item.id}, -1)"
+                    <button onclick="updateQuantity('${ck}', -1)"
                             class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors text-sm font-bold">
                         &minus;
                     </button>
                     <input type="number" min="1" max="999" value="${item.quantity}"
-                           onchange="setQuantity(${item.id}, this.value)"
+                           onchange="setQuantity('${ck}', this.value)"
                            onkeydown="if(event.key==='Enter'){this.blur()}"
                            class="w-12 text-center text-sm font-semibold text-gray-900 border border-gray-300 rounded-md py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                    <button onclick="updateQuantity(${item.id}, 1)"
+                    <button onclick="updateQuantity('${ck}', 1)"
                             class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-colors text-sm font-bold">
                         +
                     </button>
                 </div>
                 <div class="text-sm font-semibold text-gray-900 w-16 text-right">$${lineTotal.toFixed(2)}</div>
-                <button onclick="removeFromCart(${item.id})"
+                <button onclick="removeFromCart('${ck}')"
                         class="p-1 text-gray-400 hover:text-red-500 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -383,18 +591,31 @@ function updateCartDisplay() {
 
     cartItemsEl.innerHTML = html;
 
-    const total = subtotal; // Could add tax logic here
+    const total = Math.max(0, subtotal - discount + deliveryFee);
     cartSubtotalEl.textContent = '$' + subtotal.toFixed(2);
     cartTotalEl.textContent = '$' + total.toFixed(2);
     checkoutBtn.disabled = false;
     checkoutBtnText.textContent = 'Cobrar $' + total.toFixed(2);
     clearCartBtn.classList.remove('hidden');
 
-    // Update item count badge
+    // Discount line
+    if (discount > 0) {
+        discountLine.classList.remove('hidden');
+        document.getElementById('cart-discount').textContent = '-$' + discount.toFixed(2);
+    } else {
+        discountLine.classList.add('hidden');
+    }
+
+    // Delivery fee line
+    if (deliveryFee > 0) {
+        deliveryFeeLine.classList.remove('hidden');
+        document.getElementById('cart-delivery-fee').textContent = '$' + deliveryFee.toFixed(2);
+    } else {
+        deliveryFeeLine.classList.add('hidden');
+    }
+
     cartCountLabel.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
     cartCountLabel.classList.remove('hidden');
-
-    // Mobile badge
     mobileBadge.textContent = totalQty;
 }
 
@@ -404,13 +625,8 @@ function updateCartDisplay() {
 
 let activeCategory = 'all';
 
-/**
- * Filter products by category. Highlights the active button.
- */
 function filterByCategory(categoryId, btnElement) {
     activeCategory = categoryId;
-
-    // Update button styles
     document.querySelectorAll('.category-btn').forEach(btn => {
         btn.className = btn.className
             .replace('bg-blue-600 text-white', 'bg-white text-gray-700 border border-gray-300')
@@ -419,30 +635,18 @@ function filterByCategory(categoryId, btnElement) {
     btnElement.className = btnElement.className
         .replace('bg-white text-gray-700 border border-gray-300', 'bg-blue-600 text-white')
         .replace('hover:bg-gray-50', 'hover:bg-blue-700');
-
     applyFilters();
 }
 
-/**
- * Filter products by search text.
- */
-function filterProducts() {
-    applyFilters();
-}
+function filterProducts() { applyFilters(); }
 
-/**
- * Apply both category and search filters simultaneously.
- */
 function applyFilters() {
     const searchTerm = document.getElementById('product-search').value.toLowerCase().trim();
-
     document.querySelectorAll('.product-card').forEach(card => {
         const cardCategory = card.getAttribute('data-category');
         const cardName = card.getAttribute('data-name');
-
         const matchesCategory = (activeCategory === 'all' || cardCategory === activeCategory);
         const matchesSearch = (!searchTerm || cardName.includes(searchTerm));
-
         card.style.display = (matchesCategory && matchesSearch) ? '' : 'none';
     });
 }
@@ -462,16 +666,12 @@ function toggleMobileCart() {
 // Checkout
 // ============================================================
 
-/**
- * Process the sale: send cart data to the backend API.
- */
 async function checkout() {
     if (cart.length === 0) return;
 
     const checkoutBtn = document.getElementById('checkout-btn');
     const checkoutBtnText = document.getElementById('checkout-btn-text');
 
-    // Get selected payment method
     const paymentRadio = document.querySelector('input[name="payment_method"]:checked');
     if (!paymentRadio) {
         showAlert('Selecciona un metodo de pago.', 'error');
@@ -480,21 +680,29 @@ async function checkout() {
 
     const customerName = document.getElementById('customer_name').value.trim();
     const paymentMethodId = parseInt(paymentRadio.value);
+    const discount = parseFloat(document.getElementById('discount_amount').value) || 0;
+    const deliveryFee = (currentOrderType === 'delivery') ? (parseFloat(document.getElementById('delivery_fee').value) || 0) : 0;
+    const deliveryAddress = (currentOrderType === 'delivery') ? document.getElementById('delivery_address').value.trim() : '';
+    const deliveryPhone = (currentOrderType === 'delivery') ? document.getElementById('delivery_phone').value.trim() : '';
 
-    // Build items payload matching the backend API expectations
     const items = cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: item.price.toFixed(2)
+        unit_price: item.price.toFixed(2),
+        selected_variants: item.variants || [],
     }));
 
     const payload = {
         items: items,
         customer_name: customerName,
-        payment_method_id: paymentMethodId
+        payment_method_id: paymentMethodId,
+        order_type: currentOrderType,
+        discount_amount: discount.toFixed(2),
+        delivery_address: deliveryAddress,
+        delivery_phone: deliveryPhone,
+        delivery_fee: deliveryFee.toFixed(2),
     };
 
-    // Disable button during request
     checkoutBtn.disabled = true;
     checkoutBtnText.textContent = 'Procesando...';
 
@@ -511,17 +719,17 @@ async function checkout() {
         const data = await response.json();
 
         if (data.success) {
-            showAlert(
-                'Venta #' + data.sale_number + ' registrada. Total: $' + data.total_amount,
-                'success'
-            );
-
-            // Clear cart and form
+            showAlert('Venta #' + data.sale_number + ' registrada. Total: $' + data.total_amount, 'success');
             cart = [];
             updateCartDisplay();
             document.getElementById('customer_name').value = '';
+            document.getElementById('discount_amount').value = '0';
+            if (currentOrderType === 'delivery') {
+                document.getElementById('delivery_address').value = '';
+                document.getElementById('delivery_phone').value = '';
+                document.getElementById('delivery_fee').value = '0';
+            }
 
-            // Close mobile cart if open
             const panel = document.getElementById('cart-panel');
             if (panel.classList.contains('cart-open')) {
                 toggleMobileCart();

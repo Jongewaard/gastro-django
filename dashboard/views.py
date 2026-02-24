@@ -8,8 +8,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from datetime import timedelta
 
+import json
 from sales.models import Sale, PaymentMethod
-from products.models import Product, Category
+from products.models import Product, Category, ProductVariant
 from inventory.models import Ingredient
 from employees.models import Employee, WorkSchedule
 from accounting.models import CashRegister
@@ -137,7 +138,26 @@ def pos_view(request):
     products = Product.objects.filter(
         tenant=tenant,
         is_active=True
-    ).select_related('category').order_by('category__sort_order', 'sort_order', 'name')
+    ).select_related('category').prefetch_related('variants').order_by('category__sort_order', 'sort_order', 'name')
+
+    # Build variant data for JS
+    products_with_variants = {}
+    for p in products:
+        if p.has_variants:
+            variants_by_type = {}
+            for v in p.variants.filter(is_active=True).order_by('variant_type', 'sort_order', 'name'):
+                vtype = v.get_variant_type_display()
+                if vtype not in variants_by_type:
+                    variants_by_type[vtype] = []
+                variants_by_type[vtype].append({
+                    'id': v.id,
+                    'name': v.name,
+                    'price_modifier': float(v.price_modifier),
+                    'is_default': v.is_default,
+                    'type_key': v.variant_type,
+                })
+            if variants_by_type:
+                products_with_variants[p.id] = variants_by_type
 
     # Payment methods for the POS
     payment_methods = PaymentMethod.objects.filter(
@@ -149,6 +169,7 @@ def pos_view(request):
         'categories': categories,
         'products': products,
         'payment_methods': payment_methods,
+        'products_variants_json': json.dumps(products_with_variants),
         'active_page': 'pos',
     }
 

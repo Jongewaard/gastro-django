@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from .models import Sale, SaleItem, PaymentMethod
 from products.models import Product
 from accounting.models import CashRegister, CashMovement
+from inventory.models import RecipeItem, StockMovement
 
 
 @login_required
@@ -37,6 +38,11 @@ def sale_create(request):
     items_data = data.get('items', [])
     customer_name = data.get('customer_name', '')
     payment_method_id = data.get('payment_method_id')
+    order_type = data.get('order_type', 'local')
+    discount_amount_str = data.get('discount_amount', '0')
+    delivery_address = data.get('delivery_address', '')
+    delivery_phone = data.get('delivery_phone', '')
+    delivery_fee_str = data.get('delivery_fee', '0')
 
     if not items_data:
         return JsonResponse({'success': False, 'error': 'La venta debe tener al menos un producto.'}, status=400)
@@ -59,6 +65,24 @@ def sale_create(request):
         ).count() + 1
         sale_number = f"{tenant.id}-{today_str}-{today_count:04d}"
 
+        # Parse discount and delivery fee
+        try:
+            discount_val = Decimal(str(discount_amount_str))
+            if discount_val < 0:
+                discount_val = Decimal('0.00')
+        except (InvalidOperation, ValueError):
+            discount_val = Decimal('0.00')
+
+        try:
+            delivery_fee_val = Decimal(str(delivery_fee_str))
+            if delivery_fee_val < 0:
+                delivery_fee_val = Decimal('0.00')
+        except (InvalidOperation, ValueError):
+            delivery_fee_val = Decimal('0.00')
+
+        if order_type not in ('local', 'takeaway', 'delivery'):
+            order_type = 'local'
+
         # Create the sale
         sale = Sale.objects.create(
             tenant=tenant,
@@ -68,6 +92,11 @@ def sale_create(request):
             payment_method=payment_method,
             is_paid=True,
             created_by=request.user,
+            order_type=order_type,
+            discount_amount=discount_val,
+            delivery_address=delivery_address if order_type == 'delivery' else '',
+            delivery_phone=delivery_phone if order_type == 'delivery' else '',
+            delivery_fee=delivery_fee_val if order_type == 'delivery' else Decimal('0.00'),
         )
 
         # Create sale items
@@ -93,11 +122,16 @@ def sale_create(request):
             except (InvalidOperation, ValueError, TypeError):
                 continue
 
+            selected_variants = item_data.get('selected_variants', [])
+            item_notes = item_data.get('notes', '')
+
             sale_item = SaleItem.objects.create(
                 sale=sale,
                 product=product,
                 quantity=quantity,
                 unit_price=unit_price,
+                selected_variants=selected_variants,
+                notes=item_notes,
             )
             subtotal += sale_item.get_total_price()
 
@@ -112,6 +146,22 @@ def sale_create(request):
         sale.tax_amount = subtotal * tax_rate / Decimal('100')
         sale.total_amount = sale.subtotal + sale.tax_amount - sale.discount_amount + sale.delivery_fee
         sale.save()
+
+        # Consume inventory based on recipe items
+        for sale_item in sale.items.select_related('product'):
+            recipe_items = RecipeItem.objects.filter(
+                product=sale_item.product
+            ).select_related('ingredient')
+            for recipe in recipe_items:
+                qty_used = recipe.quantity_needed * sale_item.quantity
+                movement = StockMovement.objects.create(
+                    ingredient=recipe.ingredient,
+                    movement_type='usage',
+                    quantity=qty_used,
+                    notes=f'Venta #{sale.sale_number} - {sale_item.quantity}x {sale_item.product.name}',
+                    created_by=request.user,
+                )
+                movement.apply_to_stock()
 
         # If payment is cash, create a CashMovement in the open register
         if payment_method.is_cash:
@@ -133,7 +183,7 @@ def sale_create(request):
             'success': True,
             'sale_id': sale.id,
             'sale_number': sale.sale_number,
-            'total_amount': str(sale.total_amount),
+            'total_amount': f'{sale.total_amount:.2f}',
         })
 
     except Exception:
@@ -208,6 +258,22 @@ def sale_cancel(request, sale_id):
 
     sale.status = 'cancelled'
     sale.save()
+
+    # Reverse inventory consumption
+    for sale_item in sale.items.select_related('product'):
+        recipe_items = RecipeItem.objects.filter(
+            product=sale_item.product
+        ).select_related('ingredient')
+        for recipe in recipe_items:
+            qty_returned = recipe.quantity_needed * sale_item.quantity
+            movement = StockMovement.objects.create(
+                ingredient=recipe.ingredient,
+                movement_type='return',
+                quantity=qty_returned,
+                notes=f'Cancelacion venta #{sale.sale_number} - {sale_item.quantity}x {sale_item.product.name}',
+                created_by=request.user,
+            )
+            movement.apply_to_stock()
 
     # If the sale was paid in cash, reverse the cash movement in the open register
     if sale.payment_method.is_cash:

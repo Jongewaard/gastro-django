@@ -34,7 +34,7 @@
     </div>
 
     <!-- Form -->
-    <form method="post" action="" class="space-y-6"
+    <form method="post" action="" enctype="multipart/form-data" class="space-y-6"
           onsubmit="return validateFormFields(this, [{name:'name', label:'Nombre del producto'}, {name:'category', label:'Categoria'}, {name:'base_price', label:'Precio'}])">
         {% csrf_token %}
 
@@ -81,6 +81,24 @@
                     <textarea id="description" name="description" rows="3"
                               placeholder="Descripcion opcional del producto..."
                               class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 px-3 border">{% if product %}{{ product.description }}{% endif %}</textarea>
+                </div>
+
+                <!-- Imagen -->
+                <div>
+                    <label for="image" class="block text-sm font-medium text-gray-700 mb-1">
+                        Imagen del producto
+                    </label>
+                    {% if product and product.image %}
+                    <div class="mb-2 flex items-center gap-3">
+                        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-20 h-20 object-cover rounded-lg border">
+                        <label class="flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" name="remove_image" class="h-4 w-4 rounded border-gray-300 text-red-600">
+                            Eliminar imagen
+                        </label>
+                    </div>
+                    {% endif %}
+                    <input type="file" id="image" name="image" accept="image/*"
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                 </div>
 
                 <!-- Precio -->
