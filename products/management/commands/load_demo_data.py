@@ -25,8 +25,31 @@ class Command(BaseCommand):
             default='Pizzeria Demo',
             help='Nombre del negocio de ejemplo (default: Pizzeria Demo)',
         )
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Cargar datos aunque ya existan productos en el sistema',
+        )
 
     def handle(self, *args, **options):
+        # Safety check: don't run if data already exists
+        if not options['force']:
+            if Product.objects.exists():
+                self.stdout.write('')
+                self.stdout.write(self.style.WARNING(
+                    '  Ya hay productos cargados en el sistema.'
+                ))
+                self.stdout.write(self.style.WARNING(
+                    '  Los datos de ejemplo no se cargaron para no interferir.'
+                ))
+                self.stdout.write('')
+                self.stdout.write(
+                    '  Si realmente queres cargarlos, usa: '
+                    'python manage.py load_demo_data --force'
+                )
+                self.stdout.write('')
+                return
+
         business_name = options['business_name']
         self.stdout.write('')
         self.stdout.write(self.style.HTTP_INFO('=== Cargando datos de ejemplo ==='))
