@@ -9,5 +9,6 @@ urlpatterns = [
     path('<int:record_id>/download/', views.backup_download, name='backup_download'),
     path('<int:record_id>/delete/', views.backup_delete, name='backup_delete'),
     path('cleanup/', views.backup_cleanup, name='backup_cleanup'),
+    path('export-excel/', views.export_excel, name='export_excel'),
     path('restart-server/', views.server_restart, name='server_restart'),
 ]

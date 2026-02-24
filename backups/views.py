@@ -12,6 +12,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from .export_xlsx import generate_export_bytes
 from .models import BackupConfig, BackupRecord
 from .utils import (
     cleanup_old_backups,
@@ -182,6 +183,37 @@ def backup_cleanup(request):
     else:
         messages.info(request, 'No hay backups antiguos para limpiar.')
     return redirect('backup_dashboard')
+
+
+@login_required
+@backup_role_required
+def export_excel(request):
+    """Export all business data to an Excel file."""
+    tenant = request.user.tenant
+    if not tenant:
+        messages.error(request, 'No hay un negocio asociado a tu cuenta.')
+        return redirect('backup_dashboard')
+
+    days_param = request.GET.get('days')
+    days = int(days_param) if days_param and days_param.isdigit() else None
+
+    try:
+        xlsx_bytes = generate_export_bytes(tenant, days=days)
+    except Exception as e:
+        messages.error(request, f'Error al generar el Excel: {e}')
+        return redirect('backup_dashboard')
+
+    from django.utils import timezone as tz
+    today = tz.localdate().strftime('%Y-%m-%d')
+    filename = f'{tenant.slug}_datos_{today}.xlsx'
+
+    from django.http import HttpResponse
+    response = HttpResponse(
+        xlsx_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required
